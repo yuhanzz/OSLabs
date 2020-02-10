@@ -65,10 +65,7 @@ int getOperand(char type, int baseAddress, std::list< std::pair<std::string, boo
         {
             errorSymbol = it->first;
         }
-        else
-        {
-            it->second = true;
-        }
+        it->second = true;
         break;
     }
     case 'A':
@@ -100,6 +97,7 @@ void pass1()
 
     while (tokenizer.readDefCount(defCount))
     {
+        std::list<Symbol> defList;
 
         int useCount, instCount;
 
@@ -107,22 +105,39 @@ void pass1()
         {
             std::string symbolName = tokenizer.readSymbol();
             int relativeAddress = tokenizer.readAddress();
-            symbolTable.createSymbol(symbolName, relativeAddress + baseAddress, moduleIndex);
+            defList.push_back(Symbol(symbolName, relativeAddress, moduleIndex));
         }
 
         useCount = tokenizer.readUseCount();
 
         for (int i = 0; i < useCount; i++)
         {
-            std::string symbol = tokenizer.readSymbol();
+            tokenizer.readSymbol();
             // do some check
         }
 
         instCount = tokenizer.readInstCount(totalInstCount);
+
+        // insert into symbol table
+        for (std::list<Symbol>::iterator iter = defList.begin(); iter != defList.end(); iter++)
+        {
+            int address;
+            if (iter->address >= instCount)
+            {
+                std::cout << "Warning: Module " << iter->module << ": " << iter->name << " too big " << iter->address << " (max=" << instCount - 1 << ") assume zero relative" << std::endl;
+                address = baseAddress;
+            }
+            else
+            {
+                address = baseAddress + iter->address;
+            }
+            symbolTable.createSymbol(iter->name, address, iter->module);
+        }
+
         for (int i = 0; i < instCount; i++)
         {
-            char addressMode = tokenizer.readIEAR();
-            int operand = tokenizer.readOperand();
+            tokenizer.readIEAR();
+            tokenizer.readOperand();
         }
 
         // update base address for each module
@@ -142,7 +157,6 @@ void pass2()
     int baseAddress = 0;
 
     int instructionIndex = 0, moduleIndex = 1;
-
 
     while (tokenizer.readDefCount(defCount))
     {
@@ -210,14 +224,15 @@ void pass2()
         baseAddress += instCount;
 
         // print out rule 7, appear in use list but not used in E-type
-        for (std::list<std::pair<std::string, bool> >::iterator iter = useList.begin(); iter != useList.end(); iter++) {
-            if (iter->second == false) {
+        for (std::list< std::pair<std::string, bool> >::iterator iter = useList.begin(); iter != useList.end(); iter++)
+        {
+            if (iter->second == false)
+            {
                 std::cout << "Warning: Module " << moduleIndex << ": " << iter->first << " appeared in the uselist but was not actually used" << std::endl;
             }
         }
 
         moduleIndex++;
-
     }
 
     // should we put it in here???
