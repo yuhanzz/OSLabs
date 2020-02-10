@@ -1,4 +1,5 @@
 #include <iostream>
+#include <iomanip>
 #include <fstream>
 #include <string>
 #include "Tokenizer.h"
@@ -47,7 +48,7 @@ std::list<std::string> moduleWarnings;
 
 //谨防自己抛出的syntax error 被自己写的catch catch到的情况
 
-int getOperand(char type, int baseAddress, std::list<std::string> &useList, int operand)
+int getOperand(char type, int baseAddress, std::list< std::pair<std::string, bool> > &useList, int operand, std::string &errorSymbol)
 {
     int modifiedOperand;
     switch (type)
@@ -57,17 +58,28 @@ int getOperand(char type, int baseAddress, std::list<std::string> &useList, int 
         break;
     case 'E':
     { // need use list
-        std::list<std::string>::iterator it = useList.begin();
+        std::list< std::pair<std::string, bool> >::iterator it = useList.begin();
         std::advance(it, operand);
-        modifiedOperand = symbolTable.getLocation(*it);
+        modifiedOperand = symbolTable.getLocation(it->first);
+        if (modifiedOperand == NOT_DEFINED)
+        {
+            errorSymbol = it->first;
+        }
+        else
+        {
+            it->second = true;
+        }
         break;
     }
     case 'A':
         if (operand >= 512)
         {
-            moduleWarnings.push_back(" >= machine size");
+            modifiedOperand = EXCEEDS_512;
         }
-        modifiedOperand = operand;
+        else
+        {
+            modifiedOperand = operand;
+        }
         break;
     case 'I':
         modifiedOperand = operand;
@@ -84,11 +96,10 @@ void pass1()
     // module related variables;
     int defCount;
     int baseAddress = 0;
+    int moduleIndex = 1;
 
     while (tokenizer.readDefCount(defCount))
     {
-        // module related variables;
-        std::list<std::string> useList;
 
         int useCount, instCount;
 
@@ -96,7 +107,7 @@ void pass1()
         {
             std::string symbolName = tokenizer.readSymbol();
             int relativeAddress = tokenizer.readAddress();
-            symbolTable.createSymbol(symbolName, relativeAddress + baseAddress);
+            symbolTable.createSymbol(symbolName, relativeAddress + baseAddress, moduleIndex);
         }
 
         useCount = tokenizer.readUseCount();
@@ -116,6 +127,8 @@ void pass1()
 
         // update base address for each module
         baseAddress += instCount;
+
+        moduleIndex++;
     }
 }
 
@@ -128,19 +141,22 @@ void pass2()
     int defCount;
     int baseAddress = 0;
 
+    int instructionIndex = 0, moduleIndex = 1;
+
+
     while (tokenizer.readDefCount(defCount))
     {
         // module related variables;
-        std::list<std::string> useList;
+        std::list< std::pair<std::string, bool> > useList;
         moduleWarnings.clear();
         int useCount, instCount;
 
         // read def list
         for (int i = 0; i < defCount; i++)
         {
-            std::string symbolName = tokenizer.readSymbol();
-            int relativeAddress = tokenizer.readAddress();
-            symbolTable.createSymbol(symbolName, relativeAddress + baseAddress);
+            // readSymbol function can't print out anything, or the warning will duplicate
+            tokenizer.readSymbol();
+            tokenizer.readAddress();
         }
 
         useCount = tokenizer.readUseCount();
@@ -148,6 +164,7 @@ void pass2()
         for (int i = 0; i < useCount; i++)
         {
             std::string symbol = tokenizer.readSymbol();
+            useList.push_back(std::pair<std::string, bool>(symbol, false));
             // do some check
         }
 
@@ -155,11 +172,58 @@ void pass2()
         for (int i = 0; i < instCount; i++)
         {
             char addressMode = tokenizer.readIEAR();
-            int operand = tokenizer.readOperand();
+            int op = tokenizer.readOperand();
+            std::string errorSymbol;
+
+            int address = getOperand(addressMode, baseAddress, useList, op % 1000, errorSymbol);
+
+            // print instructions and following errors
+            std::cout << std::setfill('0') << std::setw(3) << instructionIndex++ << ": ";
+            std::cout << op / 1000;
+
+            if (address < 0)
+            {
+                switch (address)
+                {
+                case NOT_DEFINED:
+                {
+                    std::cout << std::setfill('0') << std::setw(3) << 0;
+                    std::cout << " Error: " << errorSymbol << " is not defined; zero used";
+                    break;
+                }
+                case EXCEEDS_512:
+                {
+                    std::cout << std::setfill('0') << std::setw(3) << 0;
+                    std::cout << " Error: Absolute address exceeds machine size; zero used";
+                    break;
+                }
+                }
+            }
+            else
+            {
+                std::cout << std::setfill('0') << std::setw(3) << address;
+            }
+
+            std::cout << std::endl;
         }
 
         baseAddress += instCount;
+
+        // print out rule 7, appear in use list but not used in E-type
+        for (std::list<std::pair<std::string, bool> >::iterator iter = useList.begin(); iter != useList.end(); iter++) {
+            if (iter->second == false) {
+                std::cout << "Warning: Module " << moduleIndex << ": " << iter->first << " appeared in the uselist but was not actually used" << std::endl;
+            }
+        }
+
+        moduleIndex++;
+
     }
+
+    // should we put it in here???
+    std::cout << std::endl;
+    // print out rule 4, defined but not used
+    symbolTable.printUnused();
 }
 
 int main(int argc, char *argv[])
@@ -182,8 +246,18 @@ int main(int argc, char *argv[])
         return 0;
     }
 
+    // print some warnings
+
+    // print symbol table and multiple defined values
+    symbolTable.print();
+
+    infile.clear();
+    infile.seekg(0, std::ios::beg);
+
     try
     {
+        // where to put this ?
+        std::cout << "\nMemory Map\n";
         pass2();
     }
     catch (std::exception &e)
@@ -192,7 +266,6 @@ int main(int argc, char *argv[])
     }
 
     infile.close();
-    infile.clear();
 
     return 0;
 }
