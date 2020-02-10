@@ -48,24 +48,42 @@ std::list<std::string> moduleWarnings;
 
 //谨防自己抛出的syntax error 被自己写的catch catch到的情况
 
-int getOperand(char type, int baseAddress, std::list< std::pair<std::string, bool> > &useList, int operand, std::string &errorSymbol)
+int getOperand(char type, int baseAddress, int moduleSize, std::list< std::pair<std::string, bool> > &useList, int operand, std::string &errorSymbol)
 {
     int modifiedOperand;
     switch (type)
     {
     case 'R':
-        modifiedOperand = baseAddress + operand;
+    {
+        if (operand < moduleSize) 
+        {
+            modifiedOperand = baseAddress + operand;
+        } 
+        else 
+        {
+            modifiedOperand = RELATIVE_EXCEEDS_MODULE_SIZE;
+        }
         break;
+    }
     case 'E':
     { // need use list
         std::list< std::pair<std::string, bool> >::iterator it = useList.begin();
-        std::advance(it, operand);
-        modifiedOperand = symbolTable.getLocation(it->first);
-        if (modifiedOperand == NOT_DEFINED)
+
+        if (operand < useList.size())
         {
-            errorSymbol = it->first;
+            //Error: External address exceeds length of uselist; treated as immediate
+            std::advance(it, operand);
+            modifiedOperand = symbolTable.getLocation(it->first);
+            if (modifiedOperand == NOT_DEFINED)
+            {
+                errorSymbol = it->first;
+            }
+            it->second = true;
         }
-        it->second = true;
+        else
+        {
+            modifiedOperand = EXCEEDS_USELIST;
+        }
         break;
     }
     case 'A':
@@ -189,7 +207,7 @@ void pass2()
             int op = tokenizer.readOperand();
             std::string errorSymbol;
 
-            int address = getOperand(addressMode, baseAddress, useList, op % 1000, errorSymbol);
+            int address = getOperand(addressMode, baseAddress, instCount, useList, op % 1000, errorSymbol);
 
             // print instructions and following errors
             std::cout << std::setfill('0') << std::setw(3) << instructionIndex++ << ": ";
@@ -209,6 +227,18 @@ void pass2()
                 {
                     std::cout << std::setfill('0') << std::setw(3) << 0;
                     std::cout << " Error: Absolute address exceeds machine size; zero used";
+                    break;
+                }
+                case EXCEEDS_USELIST:
+                {
+                    std::cout << std::setfill('0') << std::setw(3) << op % 1000;
+                    std::cout << " Error: External address exceeds length of uselist; treated as immediate";
+                    break;
+                }
+                case RELATIVE_EXCEEDS_MODULE_SIZE:
+                {
+                    std::cout << std::setfill('0') << std::setw(3) << baseAddress;
+                    std::cout << " Error: Relative address exceeds module size; zero used";
                     break;
                 }
                 }

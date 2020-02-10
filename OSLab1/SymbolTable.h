@@ -7,8 +7,9 @@ extern std::list<std::string> globalWarinigs;
 enum Pass2ErrorCode
 {
     NOT_DEFINED = -1,
-    EXCEEDS_512 = -2
-
+    EXCEEDS_512 = -2,
+    EXCEEDS_USELIST = -3,
+    RELATIVE_EXCEEDS_MODULE_SIZE = -4
 };
 
 class DuplicateSymbolException : public std::exception
