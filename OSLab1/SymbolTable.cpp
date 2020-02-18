@@ -2,40 +2,26 @@
 #include <string>
 #include "SymbolTable.h"
 
-Symbol::Symbol(std::string name, int address, int module)
+Symbol::Symbol(std::string name, int address)
 {
     // deep copy or shallow copy ???
     this->name = name;
     this->address = address;
-    this->redefined = false;
-    this->used = false;
-    this->module = module;
 }
 
-void SymbolTable::createSymbol(std::string symbol, int address, int module)
+int SymbolTable::createSymbol(std::string symbol, int address)
 {
-    // do some check
-
-    // legal symbol check in readSymbol function
-
-    // if duplicate symbol found
-    bool duplicate = false;
     for (std::list<Symbol>::iterator it = table.begin(); it != table.end(); it++)
     {
         if (symbol.compare(it->name) == 0)
         {
-            // print out message instead of throw the exception
-            it->redefined = true;
-            duplicate = true;
+            // defined multiple times
+            return -1;
         }
     }
-
-    // if address is more than the legal range
-    if (!duplicate)
-    {
-        Symbol s(symbol, address, module);
-        table.push_back(s);
-    }
+    Symbol s(symbol, address);
+    table.push_back(s);
+    return 1;
 }
 
 int SymbolTable::getLocation(std::string symbol)
@@ -44,37 +30,27 @@ int SymbolTable::getLocation(std::string symbol)
     {
         if (symbol.compare(it->name) == 0)
         {
-            it->used = true;
             return it->address;
         }
     }
 
-    // if -1, it means that the symbol is not defined
-    return NOT_DEFINED;
+    return -1;
 }
 
-void SymbolTable::print()
+void SymbolTable::print(std::unordered_map<std::string, int> &duplicateDefineTable)
 {
     std::cout << "Symbol Table" << std::endl;
 
     for (std::list<Symbol>::const_iterator it = table.begin(); it != table.end(); it++)
     {
         std::cout << it->name << '=' << it->address;
-        if (it->redefined)
+
+        // rule 2
+        if (duplicateDefineTable.find(it->name) != duplicateDefineTable.end())
         {
             std::cout << " Error: This variable is multiple times defined; first value used";
         }
-        std::cout << std::endl;
-    }
-}
 
-void SymbolTable::printUnused() 
-{
-    for (std::list<Symbol>::const_iterator it = table.begin(); it != table.end(); it++)
-    {
-        if (!it->used)
-        {
-            std::cout << "Warning: Module " << it->module << ": " << it->name << " was defined but never used" << std::endl;
-        }
+        std::cout << std::endl;
     }
 }

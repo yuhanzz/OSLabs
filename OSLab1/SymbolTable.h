@@ -1,44 +1,22 @@
 #include <iostream>
 #include <string>
 #include <list>
-
-extern std::list<std::string> globalWarinigs;
-
-enum Pass2ErrorCode
-{
-    NOT_DEFINED = -1,
-    EXCEEDS_512 = -2,
-    EXCEEDS_USELIST = -3,
-    RELATIVE_EXCEEDS_MODULE_SIZE = -4
-};
-
-class DuplicateSymbolException : public std::exception
-{
-public:
-    const char *what() const throw()
-    {
-        return "Error: This variable is multiple times defined; first value used";
-    }
-};
+#include <unordered_map>
 
 class Symbol
 {
 public:
     std::string name;
     int address;
-    bool redefined;
-    bool used;
-    int module;
 
-    Symbol(std::string, int, int);
+    Symbol(std::string, int);
 };
 
 class SymbolTable
 {
 public:
     std::list<Symbol> table;
-    void createSymbol(std::string, int, int);
+    int createSymbol(std::string, int);
     int getLocation(std::string);
-    void print();
-    void printUnused();
+    void print(std::unordered_map<std::string, int> &);
 };

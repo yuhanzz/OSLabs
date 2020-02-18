@@ -2,112 +2,110 @@
 #include <iomanip>
 #include <fstream>
 #include <string>
+#include <unordered_map>
 #include "Tokenizer.h"
 #include "SymbolTable.h"
 
 std::ifstream infile;
 SymbolTable symbolTable;
 Tokenizer tokenizer;
-// put the warning list inside the functions when necessary
-std::list<std::string> globalWarnings;
-std::list<std::string> moduleWarnings;
 
-// class WarningException : public std::exception
-// {
-
-// public:
-//     std::string message;
-//     WarningException(std::string const &message)
-//     {
-//         this->message = message;
-//     }
-//     // const char *what() const noexcept override { return message.c_str(); }
-//     const char* what() const noexcept {return "Ooops!\n";}
-// };
-
-// 如果出现了一个在symbol table之前的warning，然后又出现了一个syntax error,那那个warning应不应该打印
-
-// the number of total instructions should be less than 512
-
-// 如果读到了文件的结尾，返回一个null 的token，
-
-// try
-// {
-//     int count = std::stoi(token.token);
-
-//     totalInstCount += count;
-//     if (totalInstCount > 512) {
-//         throw SyntaxError(TOO_MANY_INSTR, token.lineNumber, token.lineOffset);
-//     }
-//     return count;
-// }
-// catch (std::exception &e)
-// {
-//     throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
-// }
-
-//谨防自己抛出的syntax error 被自己写的catch catch到的情况
-
-int getOperand(char type, int baseAddress, int moduleSize, std::list< std::pair<std::string, bool> > &useList, int operand, std::string &errorSymbol)
+void printInstruction(char type, int baseAddress, int moduleSize, std::unordered_map<std::string, bool> &defineUseMap, std::unordered_map<std::string, bool> &useListUseMap, std::list<std::string> &useList, int op, int instructionIndex)
 {
-    int modifiedOperand;
+    std::cout << std::setfill('0') << std::setw(3) << instructionIndex << ": ";
+
+    // rule 11
+    if (type != 'I' && op > 9999)
+    {
+        std::cout << 9999;
+        std::cout << " Error: Illegal opcode; treated as 9999" << std::endl;
+        return;
+    }
+
+    int operand = op % 1000;
+
     switch (type)
     {
     case 'R':
     {
-        if (operand < moduleSize) 
+        if (operand < moduleSize)
         {
-            modifiedOperand = baseAddress + operand;
-        } 
-        else 
-        {
-            modifiedOperand = RELATIVE_EXCEEDS_MODULE_SIZE;
-        }
-        break;
-    }
-    case 'E':
-    { // need use list
-        std::list< std::pair<std::string, bool> >::iterator it = useList.begin();
-
-        if (operand < useList.size())
-        {
-            //Error: External address exceeds length of uselist; treated as immediate
-            std::advance(it, operand);
-            modifiedOperand = symbolTable.getLocation(it->first);
-            if (modifiedOperand == NOT_DEFINED)
-            {
-                errorSymbol = it->first;
-            }
-            it->second = true;
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << baseAddress + operand << std::endl;
         }
         else
         {
-            modifiedOperand = EXCEEDS_USELIST;
+            // rule 9
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << baseAddress << " Error: Relative address exceeds module size; zero used" << std::endl;
         }
-        break;
+        return;
+    }
+    case 'E':
+    {
+        if (operand < useList.size())
+        {
+            std::list<std::string>::iterator it = useList.begin();
+            std::advance(it, operand);
+            int position = symbolTable.getLocation(*it);
+            if (position == -1)
+            {
+                // rule 3
+                std::cout << op / 1000;
+                std::cout << std::setfill('0') << std::setw(3) << 0 << " Error: " << *it << " is not defined; zero used" << std::endl;
+            }
+            else
+            {
+                std::cout << op / 1000;
+                std::cout << std::setfill('0') << std::setw(3) << position << std::endl;
+            }
+
+            defineUseMap[*it] = true;
+            useListUseMap[*it] = true;
+        }
+        else
+        {
+            // rule 6
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << operand << " Error: External address exceeds length of uselist; treated as immediate" << std::endl;
+        }
+        return;
     }
     case 'A':
         if (operand >= 512)
         {
-            modifiedOperand = EXCEEDS_512;
+            // rule 8
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << 0 << " Error: Absolute address exceeds machine size; zero used" << std::endl;
         }
         else
         {
-            modifiedOperand = operand;
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << operand << std::endl;
         }
-        break;
+        return;
     case 'I':
-        modifiedOperand = operand;
-        break;
+        if (op / 1000 >= 10)
+        {
+            // rule 10
+            std::cout << 9999;
+            std::cout << " Error: Illegal immediate value; treated as 9999" << std::endl;
+        }
+        else
+        {
+            std::cout << op / 1000;
+            std::cout << std::setfill('0') << std::setw(3) << operand << std::endl;
+        }
+        return;
     }
-
-    return modifiedOperand;
 }
 
 void pass1()
 {
     // file related variables
     int totalInstCount = 0;
+    std::unordered_map<std::string, int> duplicateDefineTable; // (symbol, 2) can be found if the symbols are defined multiple times
+    std::unordered_map<std::string, int> moduleTable;          // record the module where the symbols are defined
     // module related variables;
     int defCount;
     int baseAddress = 0;
@@ -116,14 +114,14 @@ void pass1()
     while (tokenizer.readDefCount(defCount))
     {
         std::list<Symbol> defList;
-
         int useCount, instCount;
 
         for (int i = 0; i < defCount; i++)
         {
+            // store the definition list and insert later (after knowing the module size)
             std::string symbolName = tokenizer.readSymbol();
             int relativeAddress = tokenizer.readAddress();
-            defList.push_back(Symbol(symbolName, relativeAddress, moduleIndex));
+            defList.push_back(Symbol(symbolName, relativeAddress));
         }
 
         useCount = tokenizer.readUseCount();
@@ -131,7 +129,6 @@ void pass1()
         for (int i = 0; i < useCount; i++)
         {
             tokenizer.readSymbol();
-            // do some check
         }
 
         instCount = tokenizer.readInstCount(totalInstCount);
@@ -139,17 +136,30 @@ void pass1()
         // insert into symbol table
         for (std::list<Symbol>::iterator iter = defList.begin(); iter != defList.end(); iter++)
         {
+            bool tooBig = false;
             int address;
             if (iter->address >= instCount)
             {
-                std::cout << "Warning: Module " << iter->module << ": " << iter->name << " too big " << iter->address << " (max=" << instCount - 1 << ") assume zero relative" << std::endl;
                 address = baseAddress;
+                tooBig = true;
             }
             else
             {
                 address = baseAddress + iter->address;
             }
-            symbolTable.createSymbol(iter->name, address, iter->module);
+
+            if (symbolTable.createSymbol(iter->name, address) == -1)
+            {
+                duplicateDefineTable[iter->name] = 2;
+            }
+            else
+            {
+                moduleTable[iter->name] = moduleIndex;
+                if (tooBig)
+                {
+                    std::cout << "Warning: Module " << moduleTable[iter->name] << ": " << iter->name << " too big " << iter->address << " (max=" << instCount - 1 << ") assume zero relative" << std::endl;
+                }
+            }
         }
 
         for (int i = 0; i < instCount; i++)
@@ -163,31 +173,43 @@ void pass1()
 
         moduleIndex++;
     }
+
+    // print symbol table and multiple defined values
+    symbolTable.print(duplicateDefineTable);
 }
 
 // main function for pass two
 void pass2()
 {
+    std::cout << "\nMemory Map\n";
+
     // file related variables
     int totalInstCount = 0;
+    std::unordered_map<std::string, int> moduleTable; // record the module where the symbols are defined
+    std::unordered_map<std::string, bool> defineUseMap;
+    int instructionIndex = 0, moduleIndex = 1;
+
     // module related variables;
     int defCount;
     int baseAddress = 0;
 
-    int instructionIndex = 0, moduleIndex = 1;
-
     while (tokenizer.readDefCount(defCount))
     {
-        // module related variables;
-        std::list< std::pair<std::string, bool> > useList;
-        moduleWarnings.clear();
+        std::unordered_map<std::string, bool> useListUseMap;
+        std::list<std::string> useList;
         int useCount, instCount;
 
         // read def list
         for (int i = 0; i < defCount; i++)
         {
-            // readSymbol function can't print out anything, or the warning will duplicate
-            tokenizer.readSymbol();
+            std::string symbol = tokenizer.readSymbol();
+
+            if (moduleTable.find(symbol) == moduleTable.end())
+            {
+                // record the module where the symbol is defined for the first time
+                moduleTable[symbol] = moduleIndex;
+            }
+
             tokenizer.readAddress();
         }
 
@@ -196,8 +218,8 @@ void pass2()
         for (int i = 0; i < useCount; i++)
         {
             std::string symbol = tokenizer.readSymbol();
-            useList.push_back(std::pair<std::string, bool>(symbol, false));
-            // do some check
+            useListUseMap[symbol] = false;
+            useList.push_back(symbol);
         }
 
         instCount = tokenizer.readInstCount(totalInstCount);
@@ -205,70 +227,33 @@ void pass2()
         {
             char addressMode = tokenizer.readIEAR();
             int op = tokenizer.readOperand();
-            std::string errorSymbol;
 
-            int address = getOperand(addressMode, baseAddress, instCount, useList, op % 1000, errorSymbol);
-
-            // print instructions and following errors
-            std::cout << std::setfill('0') << std::setw(3) << instructionIndex++ << ": ";
-            std::cout << op / 1000;
-
-            if (address < 0)
-            {
-                switch (address)
-                {
-                case NOT_DEFINED:
-                {
-                    std::cout << std::setfill('0') << std::setw(3) << 0;
-                    std::cout << " Error: " << errorSymbol << " is not defined; zero used";
-                    break;
-                }
-                case EXCEEDS_512:
-                {
-                    std::cout << std::setfill('0') << std::setw(3) << 0;
-                    std::cout << " Error: Absolute address exceeds machine size; zero used";
-                    break;
-                }
-                case EXCEEDS_USELIST:
-                {
-                    std::cout << std::setfill('0') << std::setw(3) << op % 1000;
-                    std::cout << " Error: External address exceeds length of uselist; treated as immediate";
-                    break;
-                }
-                case RELATIVE_EXCEEDS_MODULE_SIZE:
-                {
-                    std::cout << std::setfill('0') << std::setw(3) << baseAddress;
-                    std::cout << " Error: Relative address exceeds module size; zero used";
-                    break;
-                }
-                }
-            }
-            else
-            {
-                std::cout << std::setfill('0') << std::setw(3) << address;
-            }
-
-            std::cout << std::endl;
+            printInstruction(addressMode, baseAddress, instCount, defineUseMap, useListUseMap, useList, op, instructionIndex++);
         }
 
         baseAddress += instCount;
 
-        // print out rule 7, appear in use list but not used in E-type
-        for (std::list< std::pair<std::string, bool> >::iterator iter = useList.begin(); iter != useList.end(); iter++)
+        // rule 7
+        for (std::list<std::string>::iterator iter = useList.begin(); iter != useList.end(); iter++)
         {
-            if (iter->second == false)
+            if (useListUseMap[*iter] == false)
             {
-                std::cout << "Warning: Module " << moduleIndex << ": " << iter->first << " appeared in the uselist but was not actually used" << std::endl;
+                std::cout << "Warning: Module " << moduleIndex << ": " << *iter << " appeared in the uselist but was not actually used" << std::endl;
             }
         }
-
         moduleIndex++;
     }
 
-    // should we put it in here???
     std::cout << std::endl;
-    // print out rule 4, defined but not used
-    symbolTable.printUnused();
+
+    // rule 4
+    for (std::list<Symbol>::iterator iter = symbolTable.table.begin(); iter != symbolTable.table.end(); iter++)
+    {
+        if (defineUseMap.find(iter->name) == defineUseMap.end())
+        {
+            std::cout << "Warning: Module " << moduleTable[iter->name] << ": " << iter->name << " was defined but never used" << std::endl;
+        }
+    }
 }
 
 int main(int argc, char *argv[])
@@ -291,18 +276,11 @@ int main(int argc, char *argv[])
         return 0;
     }
 
-    // print some warnings
-
-    // print symbol table and multiple defined values
-    symbolTable.print();
-
     infile.clear();
     infile.seekg(0, std::ios::beg);
 
     try
     {
-        // where to put this ?
-        std::cout << "\nMemory Map\n";
         pass2();
     }
     catch (std::exception &e)
