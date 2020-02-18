@@ -8,7 +8,6 @@
 
 std::ifstream infile;
 SymbolTable symbolTable;
-Tokenizer tokenizer;
 
 void printInstruction(char type, int baseAddress, int moduleSize, std::unordered_map<std::string, bool> &defineUseMap, std::unordered_map<std::string, bool> &useListUseMap, std::list<std::string> &useList, int op, int instructionIndex)
 {
@@ -102,6 +101,7 @@ void printInstruction(char type, int baseAddress, int moduleSize, std::unordered
 
 void pass1()
 {
+    Tokenizer tokenizer;
     // file related variables
     int totalInstCount = 0;
     std::unordered_map<std::string, int> duplicateDefineTable; // (symbol, 2) can be found if the symbols are defined multiple times
@@ -181,6 +181,7 @@ void pass1()
 // main function for pass two
 void pass2()
 {
+    Tokenizer tokenizer;
     std::cout << "\nMemory Map\n";
 
     // file related variables

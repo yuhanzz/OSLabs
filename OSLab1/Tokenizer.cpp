@@ -85,7 +85,7 @@ int Tokenizer::readAddress()
     try
     {
         int address = std::stoi(token.token);
-        if (address < 0) 
+        if (address < 0)
         {
             throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
         }
@@ -123,7 +123,8 @@ int Tokenizer::readUseCount()
         {
             throw SyntaxError(TOO_MANY_USE_IN_MODULE, token.lineNumber, token.lineOffset);
         }
-        if (count < 0) {
+        if (count < 0)
+        {
             throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
         }
         return count;
@@ -155,7 +156,8 @@ int Tokenizer::readInstCount(int &totalInstCount)
     try
     {
         int count = std::stoi(token.token);
-        if (count < 0) {
+        if (count < 0)
+        {
             throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
         }
 
@@ -221,7 +223,7 @@ int Tokenizer::readOperand()
     try
     {
         int operand = std::stoi(token.token);
-        if (operand < 0) 
+        if (operand < 0)
         {
             throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
         }
@@ -251,12 +253,12 @@ std::string Tokenizer::readSymbol()
     {
         throw SyntaxError(SYM_EXPECTED, token.lineNumber, token.lineOffset);
     }
-    if (token.token.length() > 16)
-    {
-        throw SyntaxError(SYM_TOO_LONG, token.lineNumber, token.lineOffset);
-    }
     if (std::regex_match(token.token, std::regex("[A-Za-z][A-Za-z0-9]*")))
     {
+        if (token.token.length() > 16)
+        {
+            throw SyntaxError(SYM_TOO_LONG, token.lineNumber, token.lineOffset);
+        }
         return token.token;
     }
     else
@@ -281,7 +283,7 @@ bool Tokenizer::readDefCount(int &defcount)
             {
                 throw SyntaxError(TOO_MANY_DEF_IN_MODULE, token.lineNumber, token.lineOffset);
             }
-            if (defcount < 0) 
+            if (defcount < 0)
             {
                 throw SyntaxError(NUM_EXPECTED, token.lineNumber, token.lineOffset);
             }
