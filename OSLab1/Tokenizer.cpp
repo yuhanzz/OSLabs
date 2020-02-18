@@ -38,11 +38,14 @@ bool Tokenizer::getLine()
     if (!infile.eof())
     {
         std::getline(infile, line);
-        currentLineNumber++;
-        // convert the line into a char array
-        // ??? do I have to free it?
 
-        // currentLine = (char*)line.c_str();
+        if (line.length() == 0 && infile.eof())
+        {
+            // if the file ends with \n, don't update current line number and current line length
+            return false;
+        }
+
+        currentLineNumber++;
         currentLineLength = line.length();
         currentLine = new char[currentLineLength + 1];
         strcpy(currentLine, line.c_str());
@@ -51,8 +54,6 @@ bool Tokenizer::getLine()
     }
     else
     {
-        // print warning and
-        // throw an exception
         return false;
     }
 }
@@ -70,8 +71,8 @@ Token Tokenizer::getToken()
         {
             if (!getLine())
             {
-                //      !!!!!!!!!!!!!!!!!!处理一下end of file 的special case
-                return Token(currentLineNumber, token - currentLine + 1, "");
+                // no more lines to get
+                return Token(currentLineNumber, currentLineLength + 1, "");
             }
             else
             {

@@ -279,14 +279,7 @@ int main(int argc, char *argv[])
     infile.clear();
     infile.seekg(0, std::ios::beg);
 
-    try
-    {
-        pass2();
-    }
-    catch (std::exception &e)
-    {
-        std::cout << e.what();
-    }
+    pass2();
 
     infile.close();
 
