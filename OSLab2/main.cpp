@@ -19,16 +19,14 @@ int all_process_total_cpu;
 int latest_io_time;
 int io_idle_time;
 
-std::string ProcessStateStrings[] = {"CREATED", "READY", "RUNNING", "BLOCKED"};
+std::string ProcessStateStrings[] = {"CREATED", "READY", "RUNNG", "BLOCK"};
 
 // TODO
-int maxprio = 4;
+int maxprio = 3;
 
 void print_verbose(Event *event, int current_time, int prev_state_time)
 {
-    if (event->state_transition == TRANS_TO_PREEMPT)
-        return;
-    std::cout << current_time << " " << event->process->pid << " " << prev_state_time << " ";
+    std::cout << current_time << " " << event->process->pid << " " << prev_state_time << ": ";
     int rem = event->process->remaining_cpu;
     if (rem != 0)
     {
@@ -45,14 +43,18 @@ void print_verbose(Event *event, int current_time, int prev_state_time)
     }
     if (event->state_transition == TRANS_TO_RUN)
     {
-        std::cout << " cb=" << event->process->cpu_burst << " rem=" << rem << " prior=" << event->process->dynamic_priority;
+        std::cout << " cb=" << event->process->cpu_burst << " rem=" << rem << " prio=" << event->process->dynamic_priority;
+    }
+    if (event->state_transition == TRANS_TO_PREEMPT)
+    {
+        std::cout << "  cb=" << event->process->cpu_burst << " rem=" << rem << " prio=" << event->process->dynamic_priority;
     }
     std::cout << std::endl;
 }
 
 void simulation()
 {
-    FcfsScheduler scheduler;
+    PrioScheduler scheduler(maxprio);
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))
@@ -68,6 +70,10 @@ void simulation()
         {
         case TRANS_TO_READY:
         {
+            if (event->old_state == BLOCKED)
+            {
+                process->dynamic_priority = process->static_priority - 1;
+            }
             scheduler.add_process(process, current_time);
             if (current_running_process == NULL)
             {
@@ -84,7 +90,7 @@ void simulation()
 
             if (scheduler.test_preempt(process, quantum))
             {
-                Event *toPreemptedEvent_R = new Event(current_time + quantum, process, TRANS_TO_PREEMPT, RUNNING, RUNNING);
+                Event *toPreemptedEvent_R = new Event(current_time + quantum, process, TRANS_TO_PREEMPT, RUNNING, READY);
                 event_queue.add_event(toPreemptedEvent_R);
             }
             else
@@ -150,6 +156,8 @@ void simulation()
             int cpu_burst_compeleted = prev_state_time;
             process->cpu_burst -= cpu_burst_compeleted;
             process->remaining_cpu -= cpu_burst_compeleted;
+
+            process->dynamic_priority --;
 
             scheduler.add_process(process, current_time);
 
