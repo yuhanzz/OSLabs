@@ -19,3 +19,10 @@ public:
     void add_process(Process *, int);
     Process *get_next_process(int);
 };
+
+class LcfsScheduler : public BaseScheduler
+{
+public:
+    void add_process(Process *, int);
+    Process *get_next_process(int);
+};
