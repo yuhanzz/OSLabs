@@ -1,22 +1,37 @@
 #include <iostream>
 #include <list>
+#include "Process.h"
+
+extern bool verbose;
+
+typedef enum
+{
+    TRANS_TO_READY,
+    TRANS_TO_RUN,
+    TRANS_TO_BLOCK,
+    TRANS_TO_PREEMPT
+} TransitionType;
 
 class Event
 {
-    int timeStamp;
-    int process;
-    int oldState; // change to enum
-    int newState; // change to enum
-    Event(int timeStamp, int process, int oldState, int newState)
-    {
-        this->timeStamp = timeStamp;
-        this->process = process;
-        this->oldState = oldState;
-        this->newState = newState;
-    }
+public:
+    int time_stamp;
+    Process *process;
+    ProcessState old_state;
+    ProcessState new_state;
+    TransitionType state_transition;
+    Event(int, Process *, TransitionType, ProcessState, ProcessState);
+    // friend bool operator< (const Event &, const Event &);
 };
 
 class EventQueue
 {
+public:
     std::list<Event *> queue;
+    void add_event(Event *);
+    bool get_event(Event *&);
+    int get_next_event_time();
+
+    // for debug
+    void printQueue();
 };
