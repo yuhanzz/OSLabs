@@ -22,7 +22,6 @@ void FcfsScheduler::add_process(Process *process, int current_time)
     active_queue.push_back(process);
 }
 
-
 // LCFS
 void LcfsScheduler::add_process(Process *process, int current_time)
 {
@@ -54,4 +53,19 @@ void SrtfScheduler::add_process(Process *process, int current_time)
         }
     }
     active_queue.push_back(process);
+}
+
+// RR
+void RrScheduler::add_process(Process *process, int current_time)
+{
+    process->latest_enqueue_time = current_time;
+    active_queue.push_back(process);
+}
+
+bool RrScheduler::test_preempt(Process *process, int quantum)
+{
+    if (process->cpu_burst > quantum) {
+        return true;
+    }
+    return false;
 }

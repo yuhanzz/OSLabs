@@ -12,6 +12,7 @@ EventQueue event_queue;
 Process *current_running_process;
 std::list<Process *> process_list;
 bool verbose = true;
+int quantum = 5;
 
 int last_finishing_time;
 int all_process_total_cpu;
@@ -25,6 +26,8 @@ int maxprio = 4;
 
 void print_verbose(Event *event, int current_time, int prev_state_time)
 {
+    if (event->state_transition == TRANS_TO_PREEMPT)
+        return;
     std::cout << current_time << " " << event->process->pid << " " << prev_state_time << " ";
     int rem = event->process->remaining_cpu;
     if (rem != 0)
@@ -49,7 +52,7 @@ void print_verbose(Event *event, int current_time, int prev_state_time)
 
 void simulation()
 {
-    SrtfScheduler scheduler;
+    FcfsScheduler scheduler;
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))
@@ -75,13 +78,21 @@ void simulation()
         case TRANS_TO_RUN:
         {
             current_running_process = process;
-            // TODO
-            // control cpu_burst to be zero to not according to preemption
+
             if (process->cpu_burst == 0)
                 process->cpu_burst = std::min(random_generator->get(process->cpu_burst_max), process->remaining_cpu);
-            // TODO: 注意有可能要没有跑完的情况！！！！所以放到哪里减去比较合适呢？？？
-            Event *toBlockedEvent = new Event(current_time + process->cpu_burst, process, TRANS_TO_BLOCK, RUNNING, BLOCKED);
-            event_queue.add_event(toBlockedEvent);
+
+            if (scheduler.test_preempt(process, quantum))
+            {
+                Event *toPreemptedEvent_R = new Event(current_time + quantum, process, TRANS_TO_PREEMPT, RUNNING, RUNNING);
+                event_queue.add_event(toPreemptedEvent_R);
+            }
+            else
+            {
+                Event *toBlockedEvent_R = new Event(current_time + process->cpu_burst, process, TRANS_TO_BLOCK, RUNNING, BLOCKED);
+                event_queue.add_event(toBlockedEvent_R);
+            }
+
             // ????
             call_scheduler = false;
             // also change priotiy here!
@@ -96,14 +107,8 @@ void simulation()
             process->remaining_cpu -= process->cpu_burst;
             process->cpu_burst = 0;
 
-            // for debug
-            if (process->remaining_cpu < 0) {
-                std::cout << process->remaining_cpu;
-                return;
-            }
             if (process->remaining_cpu == 0)
             {
-                // 调用process.termination进行善后工作
                 process->finishing_time = current_time;
                 if (event_queue.queue.empty())
                 {
@@ -113,8 +118,7 @@ void simulation()
             }
             else
             {
-                // TODO
-                // generate an IO burst
+
                 process->io_burst = random_generator->get(process->io_burst_max);
                 process->total_io_time += process->io_burst;
                 Event *toReadyEvent = new Event(current_time + process->io_burst, process, TRANS_TO_READY, BLOCKED, READY);
@@ -141,8 +145,16 @@ void simulation()
         break;
         case TRANS_TO_PREEMPT:
         {
-            // should test preemption ??
-            // print verbose
+            // 目前来说process和current_running_process肯定是同一个
+            // 千万要直接用prev_state_time，因为trans_time已经在开头被改掉了
+            int cpu_burst_compeleted = prev_state_time;
+            process->cpu_burst -= cpu_burst_compeleted;
+            process->remaining_cpu -= cpu_burst_compeleted;
+
+            scheduler.add_process(process, current_time);
+
+            current_running_process = NULL;
+            call_scheduler = true;
         }
         break;
         }
