@@ -49,7 +49,7 @@ void print_verbose(Event *event, int current_time, int prev_state_time)
 
 void simulation()
 {
-    LcfsScheduler scheduler;
+    SrtfScheduler scheduler;
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))

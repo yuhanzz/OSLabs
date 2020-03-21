@@ -11,17 +11,6 @@ Event::Event(int time_stamp, Process *process, TransitionType state_transition, 
     this->new_state = new_state;
 }
 
-// bool operator<(const Event &left, const Event &right)
-// {
-//     if (left.time_stamp != right.time_stamp)
-//     {
-//         return left.time_stamp < right.time_stamp;
-//     }
-//     // if time_stamp are the same, compare event type
-//     //使用各种transition的enum值作为排序依据？？
-
-// }
-
 void EventQueue::add_event(Event *event)
 {
     int current_time = event->time_stamp;

@@ -1,15 +1,7 @@
 #include <iostream>
 #include "Scheduler.h"
 
-// FCFS
-
-void FcfsScheduler::add_process(Process *process, int current_time)
-{
-    process->latest_enqueue_time = current_time;
-    active_queue.push_back(process);
-}
-
-Process *FcfsScheduler::get_next_process(int current_time)
+Process *BaseScheduler::get_next_process(int current_time)
 {
     if (active_queue.empty()) {
         return NULL;
@@ -20,6 +12,14 @@ Process *FcfsScheduler::get_next_process(int current_time)
     process->cpu_waiting_time += current_time - process->latest_enqueue_time;
 
     return process;
+}
+
+// FCFS
+
+void FcfsScheduler::add_process(Process *process, int current_time)
+{
+    process->latest_enqueue_time = current_time;
+    active_queue.push_back(process);
 }
 
 
@@ -30,15 +30,28 @@ void LcfsScheduler::add_process(Process *process, int current_time)
     active_queue.push_front(process);
 }
 
-Process *LcfsScheduler::get_next_process(int current_time)
+// SRTF
+void SrtfScheduler::add_process(Process *process, int current_time)
 {
-    if (active_queue.empty()) {
-        return NULL;
+    process->latest_enqueue_time = current_time;
+
+        if (active_queue.empty())
+    {
+        active_queue.push_front(process);
+        return;
     }
-    Process *process = active_queue.front();
-    active_queue.pop_front();
 
-    process->cpu_waiting_time += current_time - process->latest_enqueue_time;
+    std::list<Process *>::iterator iterator;
 
-    return process;
+    int current_remaining = process->remaining_cpu;
+    for (iterator = active_queue.begin(); iterator != active_queue.end(); iterator++)
+    {
+        int compared_remaining = (*iterator)->remaining_cpu;
+        if (compared_remaining > current_remaining)
+        {
+            active_queue.insert(iterator, process);
+            return;
+        }
+    }
+    active_queue.push_back(process);
 }
