@@ -12,7 +12,7 @@ EventQueue event_queue;
 Process *current_running_process;
 std::list<Process *> process_list;
 bool verbose = true;
-int quantum = 5;
+int quantum = 2;
 
 int last_finishing_time;
 int all_process_total_cpu;
@@ -22,7 +22,7 @@ int io_idle_time;
 std::string ProcessStateStrings[] = {"CREATED", "READY", "RUNNG", "BLOCK"};
 
 // TODO
-int maxprio = 3;
+int maxprio = 5;
 
 void print_verbose(Event *event, int current_time, int prev_state_time)
 {
@@ -54,7 +54,7 @@ void print_verbose(Event *event, int current_time, int prev_state_time)
 
 void simulation()
 {
-    PrioScheduler scheduler(maxprio);
+    PrePrioScheduler scheduler(maxprio);
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))
@@ -78,6 +78,19 @@ void simulation()
             if (current_running_process == NULL)
             {
                 call_scheduler = true;
+            } else {
+                if (scheduler.test_prior_preempt(current_running_process, process))
+                {
+                    // check if there is pending event at the same time, if not, then preempt
+                    if (!event_queue.exist_event(current_running_process->pid, current_time))
+                    {
+                        std::cout << "yes" << std::endl;
+                        Event* prio_preempt_event = new Event(current_time, current_running_process, TRANS_TO_PREEMPT, RUNNING, READY);
+                        event_queue.add_event(prio_preempt_event);
+                    } else {
+                        std::cout << "no" << std::endl;
+                    }
+                }
             }
         }
         break;
@@ -158,6 +171,9 @@ void simulation()
             process->remaining_cpu -= cpu_burst_compeleted;
 
             process->dynamic_priority --;
+
+            // rm future events
+            event_queue.rm_future_events(process->pid);
 
             scheduler.add_process(process, current_time);
 

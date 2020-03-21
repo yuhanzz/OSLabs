@@ -31,6 +31,8 @@ public:
     void add_event(Event *);
     bool get_event(Event *&);
     int get_next_event_time();
+    bool exist_event(int, int);
+    void rm_future_events(int);
 
     // for debug
     void printQueue();

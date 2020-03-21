@@ -1,7 +1,6 @@
 #include <iostream>
 #include "EventQueue.h"
 
-
 Event::Event(int time_stamp, Process *process, TransitionType state_transition, ProcessState old_state, ProcessState new_state)
 {
     this->time_stamp = time_stamp;
@@ -67,4 +66,32 @@ int EventQueue::get_next_event_time()
         return -1;
     }
     return queue.front()->time_stamp;
+}
+
+bool EventQueue::exist_event(int pid, int time)
+{
+    for (std::list<Event *>::iterator iterator = queue.begin(); iterator != queue.end(); ++iterator)
+    {
+        if ((*iterator)->time_stamp != time)
+        {
+            return false;
+        }
+
+        if ((*iterator)->process->pid == pid)
+        {
+            return true;
+        }
+    }
+    return false;
+}
+
+void EventQueue::rm_future_events(int pid)
+{
+    for (std::list<Event *>::iterator iterator = queue.begin(); iterator != queue.end(); ++iterator)
+    {
+        if ((*iterator)->process->pid == pid)
+        {
+            queue.erase(iterator);
+        }
+    }
 }
