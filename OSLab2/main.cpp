@@ -236,6 +236,23 @@ void print_result()
         std::cout << (*iterator)->cpu_waiting_time << "\t";
         std::cout << std::endl;
     }
+    double cpu_utilization = all_process_total_cpu / (double)last_finishing_time;
+    double io_utilization = (last_finishing_time - io_idle_time) / (double)last_finishing_time;
+
+    int process_count = 0;
+    int total_turn_around = 0;
+    int total_cpu_waiting = 0;
+    for (std::list<Process*>::iterator iterator = process_list.begin(); iterator != process_list.end(); iterator++)
+    {
+        process_count++;
+        total_turn_around += (*iterator)->finishing_time - (*iterator)->arrive_time;
+        total_cpu_waiting += (*iterator)->cpu_waiting_time;
+    }
+    double ave_turn_around = total_turn_around / (double)process_count;
+    double ave_cpu_waiting = total_cpu_waiting / (double)process_count;
+    double throughput = (process_count / (double)(last_finishing_time)) * 100;
+    std::cout << last_finishing_time << " " << cpu_utilization << " " << io_utilization << " ";
+    std::cout << ave_turn_around << " " << ave_cpu_waiting << " " << throughput << std::endl;
 }
 
 int main(int argc, char *argv[])
