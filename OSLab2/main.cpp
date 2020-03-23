@@ -224,20 +224,10 @@ void print_result()
 {
     for (std::list<Process *>::iterator iterator = process_list.begin(); iterator != process_list.end(); iterator++)
     {
-        std::cout << std::setfill('0') << std::setw(3) << (*iterator)->pid << "\t";
-        std::cout << (*iterator)->arrive_time << "\t";
-        std::cout << (*iterator)->total_cpu << "\t";
-        std::cout << (*iterator)->cpu_burst_max << "\t";
-        std::cout << (*iterator)->io_burst_max << "\t";
-        std::cout << (*iterator)->static_priority << "\t|\t";
-        std::cout << (*iterator)->finishing_time << "\t";
-        std::cout << (*iterator)->finishing_time - (*iterator)->arrive_time << "\t";
-        std::cout << (*iterator)->total_io_time << "\t";
-        std::cout << (*iterator)->cpu_waiting_time << "\t";
-        std::cout << std::endl;
+        printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", (*iterator)->pid, (*iterator)->arrive_time, (*iterator)->total_cpu, (*iterator)->cpu_burst_max, (*iterator)->io_burst_max, (*iterator)->static_priority, (*iterator)->finishing_time, (*iterator)->finishing_time - (*iterator)->arrive_time, (*iterator)->total_io_time,  (*iterator)->cpu_waiting_time);
     }
-    double cpu_utilization = all_process_total_cpu / (double)last_finishing_time;
-    double io_utilization = (last_finishing_time - io_idle_time) / (double)last_finishing_time;
+    double cpu_utilization = (all_process_total_cpu / (double)last_finishing_time) * 100;
+    double io_utilization = ((last_finishing_time - io_idle_time) / (double)last_finishing_time) * 100;
 
     int process_count = 0;
     int total_turn_around = 0;
@@ -251,8 +241,8 @@ void print_result()
     double ave_turn_around = total_turn_around / (double)process_count;
     double ave_cpu_waiting = total_cpu_waiting / (double)process_count;
     double throughput = (process_count / (double)(last_finishing_time)) * 100;
-    std::cout << last_finishing_time << " " << cpu_utilization << " " << io_utilization << " ";
-    std::cout << ave_turn_around << " " << ave_cpu_waiting << " " << throughput << std::endl;
+
+    printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", last_finishing_time, cpu_utilization, io_utilization, ave_turn_around, ave_cpu_waiting, throughput);
 }
 
 int main(int argc, char *argv[])
