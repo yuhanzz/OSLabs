@@ -2,6 +2,7 @@
 #include <fstream>
 #include <cstring>
 #include <iomanip>
+#include <unistd.h>
 #include "Process.h"
 #include "EventQueue.h"
 #include "Scheduler.h"
@@ -11,8 +12,11 @@ RandomNum *random_generator;
 EventQueue event_queue;
 Process *current_running_process;
 std::list<Process *> process_list;
-bool verbose = true;
-int quantum = 2;
+bool verbose = false;
+bool t_verbose = false;
+bool e_verbose = false;
+int quantum;
+int maxprio = 4;
 
 int last_finishing_time;
 int all_process_total_cpu;
@@ -20,9 +24,6 @@ int latest_io_time;
 int io_idle_time;
 
 std::string ProcessStateStrings[] = {"CREATED", "READY", "RUNNG", "BLOCK"};
-
-// TODO
-int maxprio = 5;
 
 void print_verbose(Event *event, int current_time, int prev_state_time)
 {
@@ -52,9 +53,37 @@ void print_verbose(Event *event, int current_time, int prev_state_time)
     std::cout << std::endl;
 }
 
-void simulation()
+void simulation(char sched_type)
 {
-    PrePrioScheduler scheduler(maxprio);
+    BaseScheduler *scheduler;
+    switch (sched_type)
+    {
+    case 'F':
+        std::cout << "FCFS" << std::endl;
+        scheduler = new FcfsScheduler();
+        break;
+    case 'L':
+        std::cout << "LCFS" << std::endl;
+        scheduler = new LcfsScheduler();
+        break;
+    case 'S':
+        std::cout << "SRTF" << std::endl;
+        scheduler = new SrtfScheduler();
+        break;
+    case 'R':
+        std::cout << "RR " << quantum << std::endl;
+        scheduler = new RrScheduler();
+        break;
+    case 'P':
+        std::cout << "PRIO " << quantum << std::endl;
+        scheduler = new PrioScheduler(maxprio);
+        break;
+    case 'E':
+        std::cout << "PREPRIO " << quantum << std::endl;
+        scheduler = new PrePrioScheduler(maxprio);
+        break;
+    }
+    // PrePrioScheduler scheduler(maxprio);
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))
@@ -63,8 +92,6 @@ void simulation()
         int current_time = event->time_stamp;
         int prev_state_time = current_time - process->latest_trans_time;
         process->latest_trans_time = current_time;
-        // TODO
-        // timeInPrevState = CURRENT_TIME – proc->state_ts;
 
         switch (event->state_transition)
         {
@@ -74,21 +101,20 @@ void simulation()
             {
                 process->dynamic_priority = process->static_priority - 1;
             }
-            scheduler.add_process(process, current_time);
+            scheduler->add_process(process, current_time);
             if (current_running_process == NULL)
             {
                 call_scheduler = true;
-            } else {
-                if (scheduler.test_prior_preempt(current_running_process, process))
+            }
+            else
+            {
+                if (scheduler->test_prior_preempt(current_running_process, process))
                 {
                     // check if there is pending event at the same time, if not, then preempt
                     if (!event_queue.exist_event(current_running_process->pid, current_time))
                     {
-                        std::cout << "yes" << std::endl;
-                        Event* prio_preempt_event = new Event(current_time, current_running_process, TRANS_TO_PREEMPT, RUNNING, READY);
+                        Event *prio_preempt_event = new Event(current_time, current_running_process, TRANS_TO_PREEMPT, RUNNING, READY);
                         event_queue.add_event(prio_preempt_event);
-                    } else {
-                        std::cout << "no" << std::endl;
                     }
                 }
             }
@@ -101,7 +127,7 @@ void simulation()
             if (process->cpu_burst == 0)
                 process->cpu_burst = std::min(random_generator->get(process->cpu_burst_max), process->remaining_cpu);
 
-            if (scheduler.test_preempt(process, quantum))
+            if (scheduler->test_preempt(process, quantum))
             {
                 Event *toPreemptedEvent_R = new Event(current_time + quantum, process, TRANS_TO_PREEMPT, RUNNING, READY);
                 event_queue.add_event(toPreemptedEvent_R);
@@ -170,12 +196,12 @@ void simulation()
             process->cpu_burst -= cpu_burst_compeleted;
             process->remaining_cpu -= cpu_burst_compeleted;
 
-            process->dynamic_priority --;
+            process->dynamic_priority--;
 
             // rm future events
             event_queue.rm_future_events(process->pid);
 
-            scheduler.add_process(process, current_time);
+            scheduler->add_process(process, current_time);
 
             current_running_process = NULL;
             call_scheduler = true;
@@ -200,7 +226,7 @@ void simulation()
             // if there is no process running
             if (current_running_process == NULL)
             {
-                Process *scheduled_process = scheduler.get_next_process(current_time);
+                Process *scheduled_process = scheduler->get_next_process(current_time);
                 // if there is no process in active queue
                 if (scheduled_process == NULL)
                 {
@@ -224,7 +250,7 @@ void print_result()
 {
     for (std::list<Process *>::iterator iterator = process_list.begin(); iterator != process_list.end(); iterator++)
     {
-        printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", (*iterator)->pid, (*iterator)->arrive_time, (*iterator)->total_cpu, (*iterator)->cpu_burst_max, (*iterator)->io_burst_max, (*iterator)->static_priority, (*iterator)->finishing_time, (*iterator)->finishing_time - (*iterator)->arrive_time, (*iterator)->total_io_time,  (*iterator)->cpu_waiting_time);
+        printf("%04d: %4d %4d %4d %4d %1d | %5d %5d %5d %5d\n", (*iterator)->pid, (*iterator)->arrive_time, (*iterator)->total_cpu, (*iterator)->cpu_burst_max, (*iterator)->io_burst_max, (*iterator)->static_priority, (*iterator)->finishing_time, (*iterator)->finishing_time - (*iterator)->arrive_time, (*iterator)->total_io_time, (*iterator)->cpu_waiting_time);
     }
     double cpu_utilization = (all_process_total_cpu / (double)last_finishing_time) * 100;
     double io_utilization = ((last_finishing_time - io_idle_time) / (double)last_finishing_time) * 100;
@@ -232,7 +258,7 @@ void print_result()
     int process_count = 0;
     int total_turn_around = 0;
     int total_cpu_waiting = 0;
-    for (std::list<Process*>::iterator iterator = process_list.begin(); iterator != process_list.end(); iterator++)
+    for (std::list<Process *>::iterator iterator = process_list.begin(); iterator != process_list.end(); iterator++)
     {
         process_count++;
         total_turn_around += (*iterator)->finishing_time - (*iterator)->arrive_time;
@@ -245,17 +271,56 @@ void print_result()
     printf("SUM: %d %.2lf %.2lf %.2lf %.2lf %.3lf\n", last_finishing_time, cpu_utilization, io_utilization, ave_turn_around, ave_cpu_waiting, throughput);
 }
 
-int main(int argc, char *argv[])
+int main(int argc, char **argv)
 {
+
+    // get verbose options, s_value
+    int c;
+    char *s_value = NULL;
+
+    while ((c = getopt(argc, argv, "vtes:")) != -1)
+        switch (c)
+        {
+        case 'v':
+            verbose = true;
+            break;
+        case 't':
+            t_verbose = true;
+            break;
+        case 'e':
+            e_verbose = true;
+            break;
+        case 's':
+            s_value = optarg;
+            break;
+        }
+
+    char op1;
+    int op2, op3;
+    // parse s_value, confirm quantum, maxprio
+    if (s_value[0] == 'R' || s_value[0] == 'P' || s_value[0] == 'E')
+    {
+        int opCount = sscanf(s_value, "%c%d:%d", &op1, &op2, &op3);
+        if (opCount == 3)
+        {
+            quantum = op2;
+            maxprio = op3;
+        }
+        else
+        {
+            quantum = op2;
+        }
+    }
+
     // initialize global variable
     all_process_total_cpu = 0;
     latest_io_time = 0;
     io_idle_time = 0;
-    random_generator = new RandomNum(argv[2]);
+    random_generator = new RandomNum(argv[optind + 1]);
 
     // read from file and add initial event for each line
     std::ifstream infile;
-    infile.open(argv[1], std::ios::in);
+    infile.open(argv[optind], std::ios::in);
     std::string line;
     char *element = NULL;
     char *charArr;
@@ -289,9 +354,9 @@ int main(int argc, char *argv[])
         // for summary info
         all_process_total_cpu += TC;
     }
-    // event_queue.printQueue();
+
     // start simulation
-    simulation();
+     simulation(s_value[0]);
 
     // print info
     print_result();
