@@ -2,7 +2,7 @@
 #include "RandomNum.h"
 
 RandomNum::RandomNum(std::string file_name) {
-    // ?? = 0 ??
+
     ofs = 0;
 
     std::ifstream infile;

@@ -83,7 +83,7 @@ void simulation(char sched_type)
         scheduler = new PrePrioScheduler(maxprio);
         break;
     }
-    // PrePrioScheduler scheduler(maxprio);
+
     Event *event;
     bool call_scheduler = false;
     while (event_queue.get_event(event))
@@ -138,17 +138,14 @@ void simulation(char sched_type)
                 event_queue.add_event(toBlockedEvent_R);
             }
 
-            // ????
             call_scheduler = false;
-            // also change priotiy here!
         }
         break;
         case TRANS_TO_BLOCK:
         {
-            // TODO
-            // this is only for no preemption situation, assume that every run turns into blocked
+
             current_running_process = NULL;
-            // 注意这两个操作是一体的
+
             process->remaining_cpu -= process->cpu_burst;
             process->cpu_burst = 0;
 
@@ -158,7 +155,6 @@ void simulation(char sched_type)
                 if (event_queue.queue.empty())
                 {
                     last_finishing_time = current_time;
-                    io_idle_time += current_time - latest_io_time;
                 }
             }
             else
@@ -190,8 +186,6 @@ void simulation(char sched_type)
         break;
         case TRANS_TO_PREEMPT:
         {
-            // 目前来说process和current_running_process肯定是同一个
-            // 千万要直接用prev_state_time，因为trans_time已经在开头被改掉了
             int cpu_burst_compeleted = prev_state_time;
             process->cpu_burst -= cpu_burst_compeleted;
             process->remaining_cpu -= cpu_burst_compeleted;
@@ -232,18 +226,13 @@ void simulation(char sched_type)
                 {
                     continue;
                 }
-                // TODO
-                // if there is process in active queue
-                // generate an event for the current running process
-                // 这是唯一可能会发生在schedule之后的event?其他event都会发生在schedule之前？
-                // Event *event_for_preempted = new Event(current_time, process, TRANS_TO_READY, RUNNING, READY);
-
-                // change current_running_process to scheduled_process
+                
                 Event *toRunEvent = new Event(current_time, scheduled_process, TRANS_TO_RUN, READY, RUNNING);
                 event_queue.add_event(toRunEvent);
             }
         }
     }
+    io_idle_time += last_finishing_time - latest_io_time;
 }
 
 void print_result()

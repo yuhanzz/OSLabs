@@ -87,11 +87,15 @@ bool EventQueue::exist_event(int pid, int time)
 
 void EventQueue::rm_future_events(int pid)
 {
-    for (std::list<Event *>::iterator iterator = queue.begin(); iterator != queue.end(); ++iterator)
+    for (std::list<Event *>::iterator iterator = queue.begin(); iterator != queue.end();)
     {
         if ((*iterator)->process->pid == pid)
         {
-            queue.erase(iterator);
+            iterator = queue.erase(iterator);
+        }
+        else
+        {
+            iterator++;
         }
     }
 }
