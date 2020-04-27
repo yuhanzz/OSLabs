@@ -1,3 +1,6 @@
+#ifndef PROCESS_H_
+#define PROCESS_H_
+
 #include <iostream>
 #include <list>
 
@@ -72,3 +75,5 @@ public:
     void print_page_table();
     Vma* get_vma(int);
 };
+
+#endif

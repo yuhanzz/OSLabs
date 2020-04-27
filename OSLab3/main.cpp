@@ -8,7 +8,7 @@
 // needs input
 std::ifstream infile;
 int process_count;
-int frame_count = 16;
+int frame_count = 32;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
@@ -171,7 +171,7 @@ int main(int argc, char **argv)
     infile.open(argv[1], std::ios::in);
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
-    pager = new FifoPager(frame_count);
+
 
     // --------------- needs modification according to ops ------------------------
 
@@ -210,6 +210,11 @@ int main(int argc, char **argv)
             process_table[i].vma_list.push_back(vma);
         }
     }
+
+    // --------------- needs modification according to ops ------------------------
+    // pager = new FifoPager(frame_count);
+    pager = new ClockPager(frame_count, process_table, frame_table);
+    // --------------- needs modification according to ops ------------------------
 
     // start simulation
     char operation;
@@ -353,15 +358,3 @@ int main(int argc, char **argv)
     print_process_table();
     print_summary_info();
 }
-
-// for (int i = 0; i < process_count; i++)
-// {
-//     std::cout << process_table[i].id << std::endl;
-//     std::list<Vma *> vma_list = process_table[i].vma_list;
-//     std::list<Vma *>::iterator iterator;
-
-//     for (iterator = vma_list.begin(); iterator != vma_list.end(); iterator++)
-//     {
-//         std::cout << (*iterator)->starting_virtual_page << " " << (*iterator)->ending_virtual_page << " " << (*iterator)->write_protected << " " << (*iterator)->filemapped << std::endl;
-//     }
-// }
