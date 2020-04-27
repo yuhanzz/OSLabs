@@ -3,10 +3,136 @@
 #include <cstring>
 #include <sstream>
 #include "Process.h"
+#include "Pager.h"
 
+// needs input
 std::ifstream infile;
 int process_count;
+int frame_count = 16;
+
 Process *process_table;
+std::pair<int, int> *frame_table;
+std::list<int> free_list;
+Pager *pager;
+
+int current_process;
+int current_instr = 0;
+
+int context_switch_count = 0;
+int program_exit_count = 0;
+int access_count = 0;
+
+void print_frame_table()
+{
+    std::cout << "FT: ";
+    for (int i = 0; i < frame_count; i++)
+    {
+        if (frame_table[i].first == -1)
+        {
+            std::cout << "*";
+        }
+        else
+        {
+            std::cout << frame_table[i].first << ":" << frame_table[i].second;
+        }
+
+        std::cout << " ";
+    }
+    std::cout << std::endl;
+}
+
+void print_page_tables()
+{
+    for (int i = 0; i < process_count; i++)
+    {
+        std::cout << "PT[" << i << "]: ";
+        process_table[i].print_page_table();
+    }
+}
+
+void print_process_table()
+{
+    for (int i = 0; i < process_count; i++)
+    {
+        std::cout << "PROC[" << i << "]:";
+        std::cout << " U=" << process_table[i].unmaps;
+        std::cout << " M=" << process_table[i].maps;
+        std::cout << " I=" << process_table[i].ins;
+        std::cout << " O=" << process_table[i].outs;
+        std::cout << " FI=" << process_table[i].fins;
+        std::cout << " FO=" << process_table[i].fouts;
+        std::cout << " Z=" << process_table[i].zeros;
+        std::cout << " SV=" << process_table[i].segv;
+        std::cout << " SP=" << process_table[i].segprot;
+        std::cout << std::endl;
+    }
+}
+
+void print_summary_info()
+{
+    int cost = 0;
+    for (int i = 0; i < process_count; i++)
+    {
+        cost += process_table[i].maps * 400;
+        cost += process_table[i].unmaps * 400;
+        cost += process_table[i].ins * 3000;
+        cost += process_table[i].outs * 3000;
+        cost += process_table[i].fins * 2500;
+        cost += process_table[i].fouts * 2500;
+        cost += process_table[i].zeros * 150;
+        cost += process_table[i].segv * 240;
+        cost += process_table[i].segprot * 300;
+    }
+    cost += access_count;
+    cost += context_switch_count * 121;
+    cost += program_exit_count * 175;
+
+    std::cout << "TOTALCOST " << current_instr << " " << context_switch_count << " " << program_exit_count << " " << cost << std::endl;
+}
+
+int get_frame()
+{
+    int frame;
+    if (!free_list.empty())
+    {
+        frame = free_list.front();
+        free_list.pop_front();
+    }
+    else
+    {
+        frame = pager->select_victim();
+        // unmap current user
+        int victim_process = frame_table[frame].first;
+        int victim_page = frame_table[frame].second;
+        PageTableEntry *victim_pte = &process_table[victim_process].page_table[victim_page];
+
+        process_table[victim_process].unmaps++;
+        std::cout << " UNMAP " << victim_process << ":" << victim_page << std::endl;
+
+        // save frame to disk if necessary
+        if (victim_pte->modified == 1)
+        {
+            if (victim_pte->filemapped == 1)
+            {
+                process_table[victim_process].fouts++;
+                std::cout << " FOUT" << std::endl;
+            }
+            else
+            {
+                victim_pte->paged_out = 1;
+                process_table[victim_process].outs++;
+                std::cout << " OUT" << std::endl;
+            }
+        }
+
+        victim_pte->present = 0;
+        victim_pte->modified = 0;
+        victim_pte->referenced = 0;
+
+        frame_table[frame].first = -1;
+    }
+    return frame;
+}
 
 std::string get_next_line()
 {
@@ -40,7 +166,22 @@ bool get_next_instruction(char &operation, int &vpage)
 int main(int argc, char **argv)
 {
 
+    // --------------- needs modification according to ops ------------------------
+
     infile.open(argv[1], std::ios::in);
+    // remember to get frame_count before the following operations
+    frame_table = new std::pair<int, int>[frame_count];
+    pager = new FifoPager(frame_count);
+
+    // --------------- needs modification according to ops ------------------------
+
+    // intialize frame table and free list
+    for (int i = 0; i < frame_count; i++)
+    {
+        // -1 represent an unused frame
+        frame_table[i].first = -1;
+        free_list.push_back(i);
+    }
 
     // read in process count and create process table
     std::string line = get_next_line();
@@ -70,22 +211,157 @@ int main(int argc, char **argv)
         }
     }
 
-    for (int i = 0; i < process_count; i++)
-    {
-        std::cout << process_table[i].id << std::endl;
-        std::list<Vma *> vma_list = process_table[i].vma_list;
-        std::list<Vma *>::iterator iterator;
-
-        for (iterator = vma_list.begin(); iterator != vma_list.end(); iterator++)
-        {
-            std::cout << (*iterator)->starting_virtual_page << " " << (*iterator)->ending_virtual_page << " " << (*iterator)->write_protected << " " << (*iterator)->filemapped << std::endl;
-        }
-    }
-
+    // start simulation
     char operation;
     int vpage;
     while (get_next_instruction(operation, vpage))
     {
-        std::cout << operation << " " << vpage << std::endl;
+        std::cout << current_instr << ": ==> " << operation << " " << vpage << std::endl;
+        current_instr++;
+
+        if (operation == 'c')
+        {
+            context_switch_count++;
+            current_process = vpage;
+            continue;
+        }
+        if (operation == 'e')
+        {
+            program_exit_count++;
+            std::cout << "EXIT current process " << vpage << std::endl;
+            for (int i = 0; i < VIRTUAL_PAGE_COUNT; i++)
+            {
+                // all the swap space are cleaned when process exits
+                process_table[current_process].page_table[i].paged_out = 0;
+
+                if (process_table[current_process].page_table[i].present == 1)
+                {
+                    process_table[current_process].page_table[i].present = 0;
+
+                    std::cout << " UNMAP " << current_process << ":" << i << std::endl;
+                    process_table[current_process].unmaps++;
+                    if (process_table[current_process].page_table[i].filemapped == 1 && process_table[current_process].page_table[i].modified == 1)
+                    {
+                        process_table[current_process].fouts++;
+                        std::cout << " FOUT" << std::endl;
+                    }
+
+                    int frame = process_table[current_process].page_table[i].physical_frame;
+                    frame_table[frame].first = -1;
+                    free_list.push_back(frame);
+                }
+            }
+            continue;
+        }
+
+        access_count++;
+
+        PageTableEntry *pte = &process_table[current_process].page_table[vpage];
+
+        // if PTE valid
+        if (pte->present == 1)
+        {
+            pte->referenced = 1;
+            if (operation == 'w')
+            {
+                // check write protection
+                if (pte->write_protect)
+                {
+                    process_table[current_process].segprot++;
+                    std::cout << " SEGPROT" << std::endl;
+                }
+                else
+                {
+                    pte->modified = 1;
+                }
+            }
+            continue;
+        }
+
+        // if PTE not valid, page fault handler
+        // firstly detect segv
+        Vma *vma = process_table[current_process].get_vma(vpage);
+        if (vma == NULL)
+        {
+            process_table[current_process].segv++;
+            std::cout << " SEGV" << std::endl;
+            continue;
+        }
+        else
+        {
+            pte->filemapped = vma->filemapped;
+            pte->write_protect = vma->write_protected;
+        }
+
+        // instantiate the page
+        int frame = get_frame();
+        pte->present = 1;
+        pte->physical_frame = frame;
+
+        // populate the page content, two situations for map, 1. the page has never been used before 2. the page has been paged out before
+        if (pte->paged_out == 0)
+        {
+            if (pte->filemapped == 1)
+            {
+                process_table[current_process].fins++;
+                std::cout << " FIN" << std::endl;
+            }
+            else
+            {
+                process_table[current_process].zeros++;
+                std::cout << " ZERO" << std::endl;
+            }
+        }
+        else
+        {
+            if (pte->filemapped == 1)
+            {
+                process_table[current_process].fins++;
+                std::cout << " FIN" << std::endl;
+            }
+            else
+            {
+                process_table[current_process].ins++;
+                std::cout << " IN" << std::endl;
+            }
+        }
+
+        // reverse mapping
+        frame_table[frame].first = current_process;
+        frame_table[frame].second = vpage;
+        process_table[current_process].maps++;
+        std::cout << " MAP " << frame << std::endl;
+
+        // check write protection and update
+        pte->referenced = 1;
+        if (operation == 'w')
+        {
+            // check write protection
+            if (pte->write_protect)
+            {
+                process_table[current_process].segprot++;
+                std::cout << " SEGPROT" << std::endl;
+            }
+            else
+            {
+                pte->modified = 1;
+            }
+        }
     }
+    print_page_tables();
+    print_frame_table();
+    print_process_table();
+    print_summary_info();
 }
+
+// for (int i = 0; i < process_count; i++)
+// {
+//     std::cout << process_table[i].id << std::endl;
+//     std::list<Vma *> vma_list = process_table[i].vma_list;
+//     std::list<Vma *>::iterator iterator;
+
+//     for (iterator = vma_list.begin(); iterator != vma_list.end(); iterator++)
+//     {
+//         std::cout << (*iterator)->starting_virtual_page << " " << (*iterator)->ending_virtual_page << " " << (*iterator)->write_protected << " " << (*iterator)->filemapped << std::endl;
+//     }
+// }
