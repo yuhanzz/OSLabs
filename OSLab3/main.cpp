@@ -8,7 +8,7 @@
 // needs input
 std::ifstream infile;
 int process_count;
-int frame_count = 32;
+int frame_count = 16;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
@@ -100,7 +100,7 @@ int get_frame()
     }
     else
     {
-        frame = pager->select_victim();
+        frame = pager->select_victim(current_instr);
         // unmap current user
         int victim_process = frame_table[frame].first;
         int victim_page = frame_table[frame].second;
@@ -213,7 +213,8 @@ int main(int argc, char **argv)
 
     // --------------- needs modification according to ops ------------------------
     // pager = new FifoPager(frame_count);
-    pager = new ClockPager(frame_count, process_table, frame_table);
+    // pager = new ClockPager(frame_count, process_table, frame_table);
+    pager = new NruPager(frame_count, process_table, frame_table);
     // --------------- needs modification according to ops ------------------------
 
     // start simulation
