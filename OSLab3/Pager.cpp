@@ -98,3 +98,27 @@ int WorkingSetPager::select_victim(int inst_count)
     hand = (index_oldest_last_time_used + 1) % frame_count;
     return index_oldest_last_time_used;
 }
+
+int AgingPager::select_victim(int inst_count)
+{
+    int victim = hand;
+    // be larger than the maximum of uint32_t
+    uint64_t smallest_age = 0xFFFFFFFFFFFFFFFF;
+    for (int i = 0; i< frame_count; i++)
+    {
+        int index = (hand + i) % frame_count;
+        PageTableEntry *pte = &process_table[frame_table[index].first].page_table[frame_table[index].second];
+        age_table[index] = age_table[index] >> 1;
+        if (pte->referenced == 1) {
+            age_table[index] = (age_table[index] | 0x80000000);
+            pte->referenced = 0;
+        }
+        if (age_table[index] < smallest_age)
+        {
+            smallest_age = age_table[index];
+            victim = index;
+        }
+    }
+    hand = (victim + 1) % frame_count;
+    return victim;
+}

@@ -12,7 +12,8 @@ int frame_count = 32;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
-int* time_last_used_table;
+int *time_last_used_table;
+uint32_t *age_table;
 std::list<int> free_list;
 Pager *pager;
 
@@ -173,7 +174,11 @@ int main(int argc, char **argv)
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
     time_last_used_table = new int[frame_count];
-
+    age_table = new uint32_t[frame_count];
+    for (int i = 0; i < frame_count; i++)
+    {
+        age_table[i] = 0;
+    }
 
     // --------------- needs modification according to ops ------------------------
 
@@ -217,7 +222,8 @@ int main(int argc, char **argv)
     // pager = new FifoPager(frame_count);
     // pager = new ClockPager(frame_count, process_table, frame_table);
     // pager = new NruPager(frame_count, process_table, frame_table);
-    pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
+    // pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
+    pager = new AgingPager(frame_count, process_table, frame_table, age_table);
     // --------------- needs modification according to ops ------------------------
 
     // start simulation
@@ -340,6 +346,7 @@ int main(int argc, char **argv)
         frame_table[frame].second = vpage;
         process_table[current_process].maps++;
         time_last_used_table[frame] = current_instr;
+        age_table[frame] = 0;
         std::cout << " MAP " << frame << std::endl;
 
         // check write protection and update
