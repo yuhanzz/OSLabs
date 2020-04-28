@@ -65,3 +65,36 @@ int NruPager::select_victim(int inst_count)
     hand = (victim + 1) % frame_count;
     return victim;
 }
+
+int WorkingSetPager::select_victim(int inst_count)
+{
+
+    int index_oldest_last_time_used = hand;
+    int oldest_last_time_used = INT_MAX;
+    for (int i = 0; i < frame_count; i++)
+    {
+        int index = (hand + i) % frame_count;
+        PageTableEntry *pte = &process_table[frame_table[index].first].page_table[frame_table[index].second];
+        
+        if (pte->referenced == 1)
+        {
+            time_last_used_table[index] = inst_count;
+            pte->referenced = 0;
+        }
+        else
+        {
+            if (inst_count - time_last_used_table[index] >= 50)
+            {
+                hand = (index + 1) % frame_count;
+                return index;
+            }
+        }
+        if (time_last_used_table[index] < oldest_last_time_used)
+        {
+            oldest_last_time_used = time_last_used_table[index];
+            index_oldest_last_time_used = index;
+        }
+    }
+    hand = (index_oldest_last_time_used + 1) % frame_count;
+    return index_oldest_last_time_used;
+}

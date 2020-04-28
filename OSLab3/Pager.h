@@ -1,4 +1,5 @@
 #include <iostream>
+#include <climits>
 #include "Process.h"
 
 class Pager
@@ -55,5 +56,26 @@ public:
         this->process_table = process_table;
         this->frame_table = frame_table;
         this->last_reset_instr_count = 0;
+    }
+};
+
+
+class WorkingSetPager : public Pager
+{
+public:
+    int frame_count;
+    Process *process_table;
+    std::pair<int, int> *frame_table;
+    int* time_last_used_table;
+
+    int hand;
+    int select_victim(int);
+    WorkingSetPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table, int* time_last_used_table)
+    {
+        this->hand = 0;
+        this->frame_count = frame_count;
+        this->process_table = process_table;
+        this->frame_table = frame_table;
+        this->time_last_used_table = time_last_used_table;
     }
 };

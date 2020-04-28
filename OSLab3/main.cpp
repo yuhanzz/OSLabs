@@ -8,10 +8,11 @@
 // needs input
 std::ifstream infile;
 int process_count;
-int frame_count = 16;
+int frame_count = 32;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
+int* time_last_used_table;
 std::list<int> free_list;
 Pager *pager;
 
@@ -171,6 +172,7 @@ int main(int argc, char **argv)
     infile.open(argv[1], std::ios::in);
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
+    time_last_used_table = new int[frame_count];
 
 
     // --------------- needs modification according to ops ------------------------
@@ -214,7 +216,8 @@ int main(int argc, char **argv)
     // --------------- needs modification according to ops ------------------------
     // pager = new FifoPager(frame_count);
     // pager = new ClockPager(frame_count, process_table, frame_table);
-    pager = new NruPager(frame_count, process_table, frame_table);
+    // pager = new NruPager(frame_count, process_table, frame_table);
+    pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
     // --------------- needs modification according to ops ------------------------
 
     // start simulation
@@ -336,6 +339,7 @@ int main(int argc, char **argv)
         frame_table[frame].first = current_process;
         frame_table[frame].second = vpage;
         process_table[current_process].maps++;
+        time_last_used_table[frame] = current_instr;
         std::cout << " MAP " << frame << std::endl;
 
         // check write protection and update
