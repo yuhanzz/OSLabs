@@ -2,13 +2,19 @@
 #include <fstream>
 #include <cstring>
 #include <sstream>
+#include <unistd.h>
 #include "Process.h"
 #include "Pager.h"
 
 // needs input
 std::ifstream infile;
 int process_count;
-int frame_count = 32;
+int frame_count;
+
+bool print_O = false;
+bool print_P = false;
+bool print_F = false;
+bool print_S = false;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
@@ -109,7 +115,8 @@ int get_frame()
         PageTableEntry *victim_pte = &process_table[victim_process].page_table[victim_page];
 
         process_table[victim_process].unmaps++;
-        std::cout << " UNMAP " << victim_process << ":" << victim_page << std::endl;
+        if (print_O)
+            std::cout << " UNMAP " << victim_process << ":" << victim_page << std::endl;
 
         // save frame to disk if necessary
         if (victim_pte->modified == 1)
@@ -117,13 +124,15 @@ int get_frame()
             if (victim_pte->filemapped == 1)
             {
                 process_table[victim_process].fouts++;
-                std::cout << " FOUT" << std::endl;
+                if (print_O)
+                    std::cout << " FOUT" << std::endl;
             }
             else
             {
                 victim_pte->paged_out = 1;
                 process_table[victim_process].outs++;
-                std::cout << " OUT" << std::endl;
+                if (print_O)
+                    std::cout << " OUT" << std::endl;
             }
         }
 
@@ -170,8 +179,45 @@ int main(int argc, char **argv)
 
     // --------------- needs modification according to ops ------------------------
 
-    infile.open(argv[1], std::ios::in);
-    std::string rfile_name = argv[2];
+    int c;
+    char pager_type;
+
+    while ((c = getopt(argc, argv, "f:a:o:")) != -1)
+        switch (c)
+        {
+        case 'f':
+            frame_count = atoi(optarg);
+            break;
+        case 'a':
+            pager_type = optarg[0];
+            break;
+        case 'o':
+        {
+            for (int i = 0; i < strlen(optarg); i++)
+            {
+                if (optarg[i] == 'O')
+                {
+                    print_O = true;
+                }
+                else if (optarg[i] == 'P')
+                {
+                    print_P = true;
+                }
+                else if (optarg[i] == 'F')
+                {
+                    print_F = true;
+                }
+                else if (optarg[i] == 'S')
+                {
+                    print_S = true;
+                }
+            }
+        }
+        break;
+        }
+
+    infile.open(argv[optind], std::ios::in);
+    std::string rfile_name = argv[optind + 1];
 
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
@@ -220,21 +266,35 @@ int main(int argc, char **argv)
         }
     }
 
-    // --------------- needs modification according to ops ------------------------
-    // pager = new FifoPager(frame_count);
-    // pager = new ClockPager(frame_count, process_table, frame_table);
-    // pager = new NruPager(frame_count, process_table, frame_table);
-    // pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
-    // pager = new AgingPager(frame_count, process_table, frame_table, age_table);
-    pager = new RandomPager(frame_count, rfile_name);
-    // --------------- needs modification according to ops ------------------------
+    switch (pager_type)
+    {
+    case 'f':
+        pager = new FifoPager(frame_count);
+        break;
+    case 'r':
+        pager = new RandomPager(frame_count, rfile_name);
+        break;
+    case 'c':
+        pager = new ClockPager(frame_count, process_table, frame_table);
+        break;
+    case 'e':
+        pager = new NruPager(frame_count, process_table, frame_table);
+        break;
+    case 'a':
+        pager = new AgingPager(frame_count, process_table, frame_table, age_table);
+        break;
+    case 'w':
+        pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
+        break;
+    }
 
     // start simulation
     char operation;
     int vpage;
     while (get_next_instruction(operation, vpage))
     {
-        std::cout << current_instr << ": ==> " << operation << " " << vpage << std::endl;
+        if (print_O)
+            std::cout << current_instr << ": ==> " << operation << " " << vpage << std::endl;
         current_instr++;
 
         if (operation == 'c')
@@ -256,12 +316,14 @@ int main(int argc, char **argv)
                 {
                     process_table[current_process].page_table[i].present = 0;
 
-                    std::cout << " UNMAP " << current_process << ":" << i << std::endl;
+                    if (print_O)
+                        std::cout << " UNMAP " << current_process << ":" << i << std::endl;
                     process_table[current_process].unmaps++;
                     if (process_table[current_process].page_table[i].filemapped == 1 && process_table[current_process].page_table[i].modified == 1)
                     {
                         process_table[current_process].fouts++;
-                        std::cout << " FOUT" << std::endl;
+                        if (print_O)
+                            std::cout << " FOUT" << std::endl;
                     }
 
                     int frame = process_table[current_process].page_table[i].physical_frame;
@@ -286,7 +348,8 @@ int main(int argc, char **argv)
                 if (pte->write_protect)
                 {
                     process_table[current_process].segprot++;
-                    std::cout << " SEGPROT" << std::endl;
+                    if (print_O)
+                        std::cout << " SEGPROT" << std::endl;
                 }
                 else
                 {
@@ -302,7 +365,8 @@ int main(int argc, char **argv)
         if (vma == NULL)
         {
             process_table[current_process].segv++;
-            std::cout << " SEGV" << std::endl;
+            if (print_O)
+                std::cout << " SEGV" << std::endl;
             continue;
         }
         else
@@ -322,12 +386,14 @@ int main(int argc, char **argv)
             if (pte->filemapped == 1)
             {
                 process_table[current_process].fins++;
-                std::cout << " FIN" << std::endl;
+                if (print_O)
+                    std::cout << " FIN" << std::endl;
             }
             else
             {
                 process_table[current_process].zeros++;
-                std::cout << " ZERO" << std::endl;
+                if (print_O)
+                    std::cout << " ZERO" << std::endl;
             }
         }
         else
@@ -335,12 +401,14 @@ int main(int argc, char **argv)
             if (pte->filemapped == 1)
             {
                 process_table[current_process].fins++;
-                std::cout << " FIN" << std::endl;
+                if (print_O)
+                    std::cout << " FIN" << std::endl;
             }
             else
             {
                 process_table[current_process].ins++;
-                std::cout << " IN" << std::endl;
+                if (print_O)
+                    std::cout << " IN" << std::endl;
             }
         }
 
@@ -350,7 +418,8 @@ int main(int argc, char **argv)
         process_table[current_process].maps++;
         time_last_used_table[frame] = current_instr;
         age_table[frame] = 0;
-        std::cout << " MAP " << frame << std::endl;
+        if (print_O)
+            std::cout << " MAP " << frame << std::endl;
 
         // check write protection and update
         pte->referenced = 1;
@@ -360,7 +429,8 @@ int main(int argc, char **argv)
             if (pte->write_protect)
             {
                 process_table[current_process].segprot++;
-                std::cout << " SEGPROT" << std::endl;
+                if (print_O)
+                    std::cout << " SEGPROT" << std::endl;
             }
             else
             {
@@ -368,8 +438,14 @@ int main(int argc, char **argv)
             }
         }
     }
-    print_page_tables();
-    print_frame_table();
-    print_process_table();
-    print_summary_info();
+
+    if (print_P)
+        print_page_tables();
+    if (print_F)
+        print_frame_table();
+    if (print_S)
+    {
+        print_process_table();
+        print_summary_info();
+    }
 }
