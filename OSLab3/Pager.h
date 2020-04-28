@@ -2,6 +2,7 @@
 #include <climits>
 #include <cstdint>
 #include "Process.h"
+#include "RandomNum.h"
 
 class Pager
 {
@@ -98,5 +99,18 @@ public:
         this->process_table = process_table;
         this->frame_table = frame_table;
         this->age_table = age_table;
+    }
+};
+
+class RandomPager : public Pager
+{
+public:
+    int frame_count;
+    RandomNum* random_generator;
+    int select_victim(int);
+    RandomPager(int frame_count, std::string rfile_name)
+    {
+        this->frame_count = frame_count;
+        random_generator = new RandomNum(rfile_name);
     }
 };

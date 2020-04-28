@@ -171,6 +171,8 @@ int main(int argc, char **argv)
     // --------------- needs modification according to ops ------------------------
 
     infile.open(argv[1], std::ios::in);
+    std::string rfile_name = argv[2];
+
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
     time_last_used_table = new int[frame_count];
@@ -223,7 +225,8 @@ int main(int argc, char **argv)
     // pager = new ClockPager(frame_count, process_table, frame_table);
     // pager = new NruPager(frame_count, process_table, frame_table);
     // pager = new WorkingSetPager(frame_count, process_table, frame_table, time_last_used_table);
-    pager = new AgingPager(frame_count, process_table, frame_table, age_table);
+    // pager = new AgingPager(frame_count, process_table, frame_table, age_table);
+    pager = new RandomPager(frame_count, rfile_name);
     // --------------- needs modification according to ops ------------------------
 
     // start simulation

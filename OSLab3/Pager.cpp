@@ -122,3 +122,8 @@ int AgingPager::select_victim(int inst_count)
     hand = (victim + 1) % frame_count;
     return victim;
 }
+
+int RandomPager::select_victim(int inst_count)
+{
+    return random_generator->get(frame_count);
+}
