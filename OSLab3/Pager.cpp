@@ -1,6 +1,6 @@
 #include "Pager.h"
 
-int FifoPager::select_victim(int inst_count)
+int FifoPager::select_victim(unsigned long long inst_count)
 {
     int victim_frame = hand;
     // increment hand
@@ -8,7 +8,7 @@ int FifoPager::select_victim(int inst_count)
     return victim_frame;
 }
 
-int ClockPager::select_victim(int inst_count)
+int ClockPager::select_victim(unsigned long long inst_count)
 {
     while (process_table[frame_table[hand].first].page_table[frame_table[hand].second].referenced == 1)
     {
@@ -20,7 +20,7 @@ int ClockPager::select_victim(int inst_count)
     return victim;
 }
 
-int NruPager::select_victim(int inst_count)
+int NruPager::select_victim(unsigned long long inst_count)
 {
     bool reset = false;
     if (inst_count - this->last_reset_instr_count >= 50)
@@ -66,11 +66,11 @@ int NruPager::select_victim(int inst_count)
     return victim;
 }
 
-int WorkingSetPager::select_victim(int inst_count)
+int WorkingSetPager::select_victim(unsigned long long inst_count)
 {
 
     int index_oldest_last_time_used = hand;
-    int oldest_last_time_used = INT_MAX;
+    unsigned long long oldest_last_time_used = ULLONG_MAX;
     for (int i = 0; i < frame_count; i++)
     {
         int index = (hand + i) % frame_count;
@@ -99,7 +99,7 @@ int WorkingSetPager::select_victim(int inst_count)
     return index_oldest_last_time_used;
 }
 
-int AgingPager::select_victim(int inst_count)
+int AgingPager::select_victim(unsigned long long inst_count)
 {
     int victim = hand;
     // be larger than the maximum of uint32_t
@@ -123,7 +123,7 @@ int AgingPager::select_victim(int inst_count)
     return victim;
 }
 
-int RandomPager::select_victim(int inst_count)
+int RandomPager::select_victim(unsigned long long inst_count)
 {
     return random_generator->get(frame_count);
 }

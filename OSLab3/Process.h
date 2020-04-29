@@ -49,15 +49,15 @@ public:
     struct PageTableEntry page_table[VIRTUAL_PAGE_COUNT];
 
     // summary
-    int unmaps;
-    int maps;
-    int ins;
-    int outs;
-    int fins;
-    int fouts;
-    int zeros;
-    int segv;
-    int segprot;
+    unsigned long long unmaps;
+    unsigned long long maps;
+    unsigned long long ins;
+    unsigned long long outs;
+    unsigned long long fins;
+    unsigned long long fouts;
+    unsigned long long zeros;
+    unsigned long long segv;
+    unsigned long long segprot;
 
     Process()
     {

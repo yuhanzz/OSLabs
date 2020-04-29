@@ -18,17 +18,17 @@ bool print_S = false;
 
 Process *process_table;
 std::pair<int, int> *frame_table;
-int *time_last_used_table;
+unsigned long long *time_last_used_table;
 uint32_t *age_table;
 std::list<int> free_list;
 Pager *pager;
 
 int current_process;
-int current_instr = 0;
+unsigned long long current_instr = 0;
 
-int context_switch_count = 0;
-int program_exit_count = 0;
-int access_count = 0;
+unsigned long long context_switch_count = 0;
+unsigned long long program_exit_count = 0;
+unsigned long long access_count = 0;
 
 void print_frame_table()
 {
@@ -78,7 +78,7 @@ void print_process_table()
 
 void print_summary_info()
 {
-    int cost = 0;
+    unsigned long long cost = 0;
     for (int i = 0; i < process_count; i++)
     {
         cost += process_table[i].maps * 400;
@@ -221,7 +221,7 @@ int main(int argc, char **argv)
 
     // remember to get frame_count before the following operations
     frame_table = new std::pair<int, int>[frame_count];
-    time_last_used_table = new int[frame_count];
+    time_last_used_table = new unsigned long long[frame_count];
     age_table = new uint32_t[frame_count];
     for (int i = 0; i < frame_count; i++)
     {

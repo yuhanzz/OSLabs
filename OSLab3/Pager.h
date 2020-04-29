@@ -7,7 +7,7 @@
 class Pager
 {
 public:
-    virtual int select_victim(int) = 0;
+    virtual int select_victim(unsigned long long) = 0;
 };
 
 class FifoPager : public Pager
@@ -15,7 +15,7 @@ class FifoPager : public Pager
 public:
     int frame_count;
     int hand;
-    int select_victim(int);
+    int select_victim(unsigned long long);
     FifoPager(int frame_count)
     {
         this->hand = 0;
@@ -31,7 +31,7 @@ public:
     std::pair<int, int> *frame_table;
 
     int hand;
-    int select_victim(int);
+    int select_victim(unsigned long long);
     ClockPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table)
     {
         this->hand = 0;
@@ -49,8 +49,8 @@ public:
     std::pair<int, int> *frame_table;
 
     int hand;
-    int last_reset_instr_count;
-    int select_victim(int);
+    unsigned long long last_reset_instr_count;
+    int select_victim(unsigned long long);
     NruPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table)
     {
         this->hand = 0;
@@ -68,11 +68,11 @@ public:
     int frame_count;
     Process *process_table;
     std::pair<int, int> *frame_table;
-    int* time_last_used_table;
+    unsigned long long* time_last_used_table;
 
     int hand;
-    int select_victim(int);
-    WorkingSetPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table, int* time_last_used_table)
+    int select_victim(unsigned long long);
+    WorkingSetPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table, unsigned long long* time_last_used_table)
     {
         this->hand = 0;
         this->frame_count = frame_count;
@@ -91,7 +91,7 @@ public:
     uint32_t* age_table;
 
     int hand;
-    int select_victim(int);
+    int select_victim(unsigned long long);
     AgingPager(int frame_count, Process *process_table, std::pair<int, int> *frame_table, uint32_t* age_table)
     {
         this->hand = 0;
@@ -107,7 +107,7 @@ class RandomPager : public Pager
 public:
     int frame_count;
     RandomNum* random_generator;
-    int select_victim(int);
+    int select_victim(unsigned long long);
     RandomPager(int frame_count, std::string rfile_name)
     {
         this->frame_count = frame_count;
