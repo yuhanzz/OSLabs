@@ -94,3 +94,36 @@ IORequest *LookScheduler::strategy(int head)
     io_queue.remove(selected_request);
     return selected_request;
 }
+
+void CLookScheduler::enqueue(IORequest *request)
+{
+    io_queue.push_back(request);
+}
+
+IORequest *CLookScheduler::strategy(int head)
+{
+    IORequest *selected_request;
+    int closest_track = INT_MAX;
+    int smallest_track = INT_MAX;
+    IORequest *smallest_track_request;
+    for (std::list<IORequest *>::iterator iter = io_queue.begin(); iter != io_queue.end(); iter++)
+    {
+        if ((*iter)->end_track >= head && (*iter)->end_track < closest_track)
+        {
+            closest_track = (*iter)->end_track;
+            selected_request = (*iter);
+        }
+        if ((*iter)->end_track < smallest_track)
+        {
+            smallest_track = (*iter)->end_track;
+            smallest_track_request = (*iter);
+        }
+    }
+    if (closest_track == INT_MAX)
+    {
+        selected_request = smallest_track_request;
+    }
+
+    io_queue.remove(selected_request);
+    return selected_request;
+}

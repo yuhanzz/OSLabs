@@ -69,7 +69,7 @@ void print_summary()
 
 int main(int argc, char **argv)
 {
-    LookScheduler scheduler;
+    CLookScheduler scheduler;
 
     infile.open(argv[1], std::ios::in);
 

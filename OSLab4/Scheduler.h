@@ -36,3 +36,10 @@ class LookScheduler : public BaseScheduler
         direction = 1;
     }
 };
+
+class CLookScheduler : public BaseScheduler
+{
+    public:
+    IORequest *strategy(int);
+    void enqueue(IORequest *);
+};
