@@ -24,3 +24,15 @@ class SstfScheduler : public BaseScheduler
     IORequest *strategy(int);
     void enqueue(IORequest *);
 };
+
+class LookScheduler : public BaseScheduler
+{
+    public:
+    int direction;
+    IORequest *strategy(int);
+    void enqueue(IORequest *);
+    LookScheduler()
+    {
+        direction = 1;
+    }
+};
