@@ -1,5 +1,5 @@
 #include <iostream>
-#include "IORequest.h"
+#include "IORequest.cpp"
 #include <list>
 #include <climits>
 #include <cmath>
@@ -8,6 +8,7 @@ class BaseScheduler
 {
 public:
     std::list<IORequest *> *io_queue;
+    virtual IORequest *strategy(int) = 0;
     virtual void enqueue(IORequest *) = 0;
     virtual bool is_empty() = 0;
 };

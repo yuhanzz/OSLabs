@@ -4,6 +4,7 @@
 #include <sstream>
 #include <cmath>
 #include <list>
+#include <unistd.h>
 #include "Scheduler.h"
 
 std::ifstream infile;
@@ -68,9 +69,40 @@ void print_summary()
 
 int main(int argc, char **argv)
 {
-    FLookScheduler scheduler;
 
-    infile.open(argv[1], std::ios::in);
+    int c;
+    char scheduler_type;
+
+    while ((c = getopt(argc, argv, "s:")) != -1)
+        switch (c)
+        {
+        case 's':
+            scheduler_type = optarg[0];
+            break;
+        }
+    
+    BaseScheduler* scheduler;
+    switch(scheduler_type)
+    {
+        case 'i':
+        scheduler = new FifoScheduler();
+        break;
+        case 'j':
+        scheduler = new SstfScheduler();
+        break;
+        case 's':
+        scheduler = new LookScheduler();
+        break;
+        case 'c':
+        scheduler = new CLookScheduler();
+        break;
+        case 'f':
+        scheduler = new FLookScheduler();
+        break;
+    }
+
+
+    infile.open(argv[optind], std::ios::in);
 
     int time_step, track;
     int op_num = 0;
@@ -81,11 +113,11 @@ int main(int argc, char **argv)
     }
 
     std::list<IORequest>::iterator request_iter = request_queue.begin();
-    while (request_iter != request_queue.end() || current_request != NULL || !scheduler.is_empty())
+    while (request_iter != request_queue.end() || current_request != NULL || !scheduler->is_empty())
     {
         if (request_iter->arrive_time == current_time)
         {
-            scheduler.enqueue(&(*request_iter));
+            scheduler->enqueue(&(*request_iter));
             request_iter++;
         }
 
@@ -101,9 +133,9 @@ int main(int argc, char **argv)
             head += step;
         }
 
-        while (current_request == NULL && !scheduler.is_empty())
+        while (current_request == NULL && !scheduler->is_empty())
         {
-            current_request = scheduler.strategy(head);
+            current_request = scheduler->strategy(head);
 
             current_request->start_time = current_time;
             current_request->start_track = head;
@@ -124,11 +156,4 @@ int main(int argc, char **argv)
     }
 
     print_summary();
-
-    // while (!request_queue.empty())
-    // {
-    //     IORequest request = request_queue.front();
-    //     request_queue.pop_front();
-    //     std::cout << request.arrive_time << " " << request.track << std::endl;
-    // }
 }
