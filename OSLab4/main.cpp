@@ -69,7 +69,7 @@ void print_summary()
 
 int main(int argc, char **argv)
 {
-    FifoScheduler scheduler;
+    SstfScheduler scheduler;
 
     infile.open(argv[1], std::ios::in);
 
@@ -102,19 +102,24 @@ int main(int argc, char **argv)
             head += step;
         }
 
-        if (current_request == NULL)
+        while (current_request == NULL && !scheduler.io_queue.empty())
         {
-            if (!scheduler.io_queue.empty())
-            {
-                current_request = scheduler.strategy();
-                current_request->start_time = current_time;
-                current_request->start_track = head;
+            current_request = scheduler.strategy(head);
 
+            current_request->start_time = current_time;
+            current_request->start_track = head;
+
+            if (current_request->end_track == head)
+            {
+                current_request->end_time = current_time;
+                current_request = NULL;
+            }
+            else
+            {
                 int step = current_request->end_track - head > 0 ? 1 : -1;
                 head += step;
             }
         }
-        // when scheduled, remember to set head to the current track;
 
         current_time++;
     }
