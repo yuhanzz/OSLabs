@@ -8,7 +8,6 @@
 
 std::ifstream infile;
 std::list<IORequest> request_queue;
-std::list<IORequest> io_queue;
 IORequest *current_request;
 
 int current_time = 0;
@@ -69,7 +68,7 @@ void print_summary()
 
 int main(int argc, char **argv)
 {
-    CLookScheduler scheduler;
+    FLookScheduler scheduler;
 
     infile.open(argv[1], std::ios::in);
 
@@ -82,7 +81,7 @@ int main(int argc, char **argv)
     }
 
     std::list<IORequest>::iterator request_iter = request_queue.begin();
-    while (request_iter != request_queue.end() || current_request != NULL || !scheduler.io_queue.empty())
+    while (request_iter != request_queue.end() || current_request != NULL || !scheduler.is_empty())
     {
         if (request_iter->arrive_time == current_time)
         {
@@ -102,7 +101,7 @@ int main(int argc, char **argv)
             head += step;
         }
 
-        while (current_request == NULL && !scheduler.io_queue.empty())
+        while (current_request == NULL && !scheduler.is_empty())
         {
             current_request = scheduler.strategy(head);
 
