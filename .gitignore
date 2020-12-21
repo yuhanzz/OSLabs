@@ -1,0 +1,5 @@
+/.vscode
+/.metals/
+*/main
+*/main.dSYM
+.scalafmt.conf
